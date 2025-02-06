@@ -3,7 +3,7 @@ mod consts;
 use consts::*;
 
 struct Canvas {
-    pixels: Vec<Vec<Color>>,
+    image: Image,
 }
 
 #[macroquad::main("plow")]
@@ -16,11 +16,8 @@ async fn main() {
     let mut camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
     let mut camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
 
-    let mut line = Vec::new();
-    line.resize(canvas_width, WHITE);
-    let mut rows = Vec::new();
-    rows.resize(canvas_height, line);
-    let canvas = Canvas { pixels: rows };
+    let image = Image::gen_image_color(canvas_width, canvas_height, WHITE);
+    let canvas = Canvas { image };
 
     loop {
         clear_background(BG_COLOR);
@@ -52,17 +49,15 @@ async fn main() {
         let mouse_world_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
 
         // draw canvas
-        for (y, line) in canvas.pixels.iter().enumerate() {
-            for (x, color) in line.iter().enumerate() {
-                draw_rectangle(
-                    x as f32 * camera_grid_size - camera_x,
-                    y as f32 * camera_grid_size - camera_y,
-                    camera_grid_size as f32,
-                    camera_grid_size as f32,
-                    *color,
-                );
-            }
-        }
+        let texture = Texture2D::from_image(&canvas.image);
+        let draw_params = DrawTextureParams {
+            dest_size: Some(vec2(
+                canvas_width as f32 * camera_grid_size,
+                canvas_height as f32 * camera_grid_size,
+            )),
+            ..Default::default()
+        };
+        draw_texture_ex(&texture, -camera_x, -camera_y, WHITE, draw_params);
 
         // draw cursor
         draw_rectangle(
