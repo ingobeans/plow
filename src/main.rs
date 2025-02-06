@@ -69,11 +69,14 @@ async fn main() {
         draw_texture_ex(&canvas_texture, -camera_x, -camera_y, WHITE, draw_params);
 
         // draw cursor
-        draw_rectangle(
-            mouse_world_x * camera_grid_size - camera_x,
-            mouse_world_y * camera_grid_size - camera_y,
-            camera_grid_size as f32,
-            camera_grid_size as f32,
+        let cursor_x = mouse_world_x * camera_grid_size - camera_x;
+        let cursor_y = mouse_world_y * camera_grid_size - camera_y;
+        draw_rectangle_lines(
+            cursor_x,
+            cursor_y,
+            camera_grid_size,
+            camera_grid_size,
+            BORDER_WIDTH,
             CURSOR_COLOR,
         );
 
