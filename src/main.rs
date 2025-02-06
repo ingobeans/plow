@@ -49,9 +49,16 @@ async fn main() {
             camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
+
         let mouse_world_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
         let mouse_world_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
-        if is_mouse_button_down(MouseButton::Left) {
+        let cursor_in_canvas = mouse_world_x >= 0.
+            && (mouse_world_x as u16) < canvas_width
+            && mouse_world_y >= 0.
+            && (mouse_world_y as u16) < canvas_height;
+
+        if cursor_in_canvas && is_mouse_button_down(MouseButton::Left) {
+            // draw pixel if LMB is pressed
             canvas
                 .image
                 .set_pixel(mouse_world_x as u32, mouse_world_y as u32, BLACK);
@@ -69,17 +76,19 @@ async fn main() {
         };
         draw_texture_ex(&canvas_texture, -camera_x, -camera_y, WHITE, draw_params);
 
-        // draw cursor
-        let cursor_x = mouse_world_x * camera_grid_size - camera_x;
-        let cursor_y = mouse_world_y * camera_grid_size - camera_y;
-        draw_rectangle_lines(
-            cursor_x,
-            cursor_y,
-            camera_grid_size,
-            camera_grid_size,
-            BORDER_WIDTH,
-            CURSOR_COLOR,
-        );
+        // draw cursor (if in bounds)
+        if cursor_in_canvas {
+            let cursor_x = mouse_world_x * camera_grid_size - camera_x;
+            let cursor_y = mouse_world_y * camera_grid_size - camera_y;
+            draw_rectangle_lines(
+                cursor_x,
+                cursor_y,
+                camera_grid_size,
+                camera_grid_size,
+                BORDER_WIDTH,
+                CURSOR_COLOR,
+            );
+        }
 
         // draw fps
         draw_rectangle(10., 10., 40., 20., WHITE);
