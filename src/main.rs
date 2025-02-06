@@ -16,8 +16,10 @@ async fn main() {
     let mut camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
     let mut camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
 
+    let grid_material = get_grid_material();
+
     let mut canvas = Canvas {
-        image: Image::gen_image_color(canvas_width, canvas_height, WHITE),
+        image: Image::gen_image_color(canvas_width, canvas_height, Color::from_rgba(0, 0, 0, 0)),
     };
 
     let mut canvas_texture = Texture2D::from_image(&canvas.image);
@@ -67,6 +69,16 @@ async fn main() {
             canvas_texture.set_filter(FilterMode::Nearest);
         }
 
+        // draw grid background behind canvas
+        gl_use_material(&grid_material);
+        draw_rectangle(
+            -camera_x,
+            -camera_y,
+            canvas_width as f32 * camera_grid_size,
+            canvas_height as f32 * camera_grid_size,
+            WHITE,
+        );
+        gl_use_default_material();
         // draw canvas
         let draw_params = DrawTextureParams {
             dest_size: Some(vec2(
