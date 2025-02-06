@@ -6,6 +6,33 @@ struct Canvas {
     image: Image,
 }
 
+fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
+    draw_rectangle_lines(
+        cursor_x,
+        cursor_y,
+        camera_grid_size,
+        camera_grid_size,
+        BORDER_WIDTH,
+        BLACK,
+    );
+    draw_rectangle_lines(
+        cursor_x + BORDER_WIDTH / 2.,
+        cursor_y + BORDER_WIDTH / 2.,
+        camera_grid_size - BORDER_WIDTH,
+        camera_grid_size - BORDER_WIDTH,
+        BORDER_WIDTH,
+        WHITE,
+    );
+    draw_rectangle_lines(
+        cursor_x + BORDER_WIDTH,
+        cursor_y + BORDER_WIDTH,
+        camera_grid_size - BORDER_WIDTH * 2.,
+        camera_grid_size - BORDER_WIDTH * 2.,
+        BORDER_WIDTH,
+        BLACK,
+    );
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     let canvas_width = 100;
@@ -47,12 +74,12 @@ async fn main() {
             let old_mouse_world_y = (mouse.1 + camera_y) / camera_grid_size;
             // update grid size
             camera_grid_size /= amt;
+            camera_grid_size = camera_grid_size.max(0.1);
             // move camera position to zoom towards cursor
             // by comparing old world mouse position
             camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
-
         let mouse_world_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
         let mouse_world_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
         let cursor_in_canvas = mouse_world_x >= 0.
@@ -93,30 +120,7 @@ async fn main() {
         if cursor_in_canvas {
             let cursor_x = mouse_world_x * camera_grid_size - camera_x;
             let cursor_y = mouse_world_y * camera_grid_size - camera_y;
-            draw_rectangle_lines(
-                cursor_x,
-                cursor_y,
-                camera_grid_size,
-                camera_grid_size,
-                BORDER_WIDTH,
-                BLACK,
-            );
-            draw_rectangle_lines(
-                cursor_x + BORDER_WIDTH / 2.,
-                cursor_y + BORDER_WIDTH / 2.,
-                camera_grid_size - BORDER_WIDTH,
-                camera_grid_size - BORDER_WIDTH,
-                BORDER_WIDTH,
-                WHITE,
-            );
-            draw_rectangle_lines(
-                cursor_x + BORDER_WIDTH,
-                cursor_y + BORDER_WIDTH,
-                camera_grid_size - BORDER_WIDTH * 2.,
-                camera_grid_size - BORDER_WIDTH * 2.,
-                BORDER_WIDTH,
-                BLACK,
-            );
+            draw_cursor_at(cursor_x, cursor_y, camera_grid_size);
         }
 
         // draw fps
