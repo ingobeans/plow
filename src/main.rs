@@ -19,6 +19,8 @@ async fn main() {
     let image = Image::gen_image_color(canvas_width, canvas_height, WHITE);
     let canvas = Canvas { image };
 
+    let canvas_texture = Texture2D::from_image(&canvas.image);
+
     loop {
         clear_background(BG_COLOR);
 
@@ -49,7 +51,6 @@ async fn main() {
         let mouse_world_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
 
         // draw canvas
-        let texture = Texture2D::from_image(&canvas.image);
         let draw_params = DrawTextureParams {
             dest_size: Some(vec2(
                 canvas_width as f32 * camera_grid_size,
@@ -57,7 +58,7 @@ async fn main() {
             )),
             ..Default::default()
         };
-        draw_texture_ex(&texture, -camera_x, -camera_y, WHITE, draw_params);
+        draw_texture_ex(&canvas_texture, -camera_x, -camera_y, WHITE, draw_params);
 
         // draw cursor
         draw_rectangle(
