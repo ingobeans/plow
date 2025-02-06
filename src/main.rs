@@ -21,11 +21,14 @@ async fn main() {
             // i dont know how to actually do this scroll stuff
             // but i made this curve in geogebra and i mean it looks cool
             // i assumed it should grow exponentially, since it shant ever reach 0, only ever approach it as x decreases
+            let amt = 5_f32.powf(-0.001 * (scroll.1));
+            // store old mouse position (in world position)
             let x = (mouse.0 + camera_x) / camera_grid_size;
             let y = (mouse.1 + camera_y) / camera_grid_size;
-            let amt = 5_f32.powf(-0.001 * (scroll.1));
+            // update grid size
             camera_grid_size /= amt;
             // move camera position to zoom towards cursor
+            // by comparing old world mouse position
             camera_x = x * camera_grid_size - mouse.0;
             camera_y = y * camera_grid_size - mouse.1;
         }
