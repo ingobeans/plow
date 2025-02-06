@@ -16,16 +16,17 @@ async fn main() {
     let mut camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
     let mut camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
 
-    let image = Image::gen_image_color(canvas_width, canvas_height, WHITE);
-    let canvas = Canvas { image };
+    let mut image = Image::gen_image_color(canvas_width, canvas_height, WHITE);
+    let mut canvas = Canvas { image };
 
-    let canvas_texture = Texture2D::from_image(&canvas.image);
+    let mut canvas_texture = Texture2D::from_image(&canvas.image);
+    canvas_texture.set_filter(FilterMode::Nearest);
 
     loop {
         clear_background(BG_COLOR);
 
         // handle input
-        if is_mouse_button_down(MouseButton::Left) {
+        if is_mouse_button_down(MouseButton::Right) {
             let mouse_delta = mouse_delta_position();
             camera_x += mouse_delta.x as f32 * screen_width() / 2.;
             camera_y += mouse_delta.y as f32 * screen_height() / 2.;
@@ -49,6 +50,13 @@ async fn main() {
         }
         let mouse_world_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
         let mouse_world_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
+        if is_mouse_button_down(MouseButton::Left) {
+            canvas
+                .image
+                .set_pixel(mouse_world_x as u32, mouse_world_y as u32, BLACK);
+            canvas_texture = Texture2D::from_image(&canvas.image);
+            canvas_texture.set_filter(FilterMode::Nearest);
+        }
 
         // draw canvas
         let draw_params = DrawTextureParams {
