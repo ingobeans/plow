@@ -64,7 +64,7 @@ async fn main() {
             // draw pixel if LMB is pressed
             canvas
                 .image
-                .set_pixel(mouse_world_x as u32, mouse_world_y as u32, BLACK);
+                .set_pixel(mouse_world_x as u32, mouse_world_y as u32, WHITE);
             canvas_texture = Texture2D::from_image(&canvas.image);
             canvas_texture.set_filter(FilterMode::Nearest);
         }
@@ -99,7 +99,23 @@ async fn main() {
                 camera_grid_size,
                 camera_grid_size,
                 BORDER_WIDTH,
-                CURSOR_COLOR,
+                BLACK,
+            );
+            draw_rectangle_lines(
+                cursor_x + BORDER_WIDTH / 2.,
+                cursor_y + BORDER_WIDTH / 2.,
+                camera_grid_size - BORDER_WIDTH,
+                camera_grid_size - BORDER_WIDTH,
+                BORDER_WIDTH,
+                WHITE,
+            );
+            draw_rectangle_lines(
+                cursor_x + BORDER_WIDTH,
+                cursor_y + BORDER_WIDTH,
+                camera_grid_size - BORDER_WIDTH * 2.,
+                camera_grid_size - BORDER_WIDTH * 2.,
+                BORDER_WIDTH,
+                BLACK,
             );
         }
 
