@@ -35,10 +35,11 @@ async fn main() {
         let scroll = mouse_wheel();
         let mouse = mouse_position();
         if scroll.1 != 0. {
-            // i dont know how to actually do this scroll stuff
-            // but i made this curve in geogebra and i mean it looks cool
-            // i assumed it should grow exponentially, since it shant ever reach 0, only ever approach it as x decreases
-            let amt = 5_f32.powf(-0.001 * (scroll.1));
+            let amt = if scroll.1 > 0. {
+                1. / (scroll.1 / 110.)
+            } else {
+                scroll.1 / -110.
+            };
             // store old mouse position (in world position)
             let old_mouse_world_x = (mouse.0 + camera_x) / camera_grid_size;
             let old_mouse_world_y = (mouse.1 + camera_y) / camera_grid_size;
