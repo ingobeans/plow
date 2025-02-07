@@ -1,4 +1,6 @@
-use egui_macroquad::egui;
+use std::default;
+
+use egui_macroquad::egui::{self, Layout};
 use macroquad::prelude::*;
 mod consts;
 use consts::*;
@@ -121,10 +123,15 @@ async fn main() {
         // define ui
         let mut mouse_over_ui = false;
         egui_macroquad::ui(|egui_ctx| {
-            egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, "topbar")
-                .show(egui_ctx, |ui| {
-                    ui.label(format!("untitled - {}", plow_header))
-                });
+            egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, "topbar").show(
+                egui_ctx,
+                |ui| {
+                    ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
+                        ui.label(format!("[untitled - {}]", plow_header));
+                        ui.label(format!("fps: {}", get_fps()));
+                    });
+                },
+            );
             mouse_over_ui = egui_ctx.is_pointer_over_area();
         });
 
