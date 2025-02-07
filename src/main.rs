@@ -1,3 +1,4 @@
+use egui_macroquad::egui;
 use macroquad::prelude::*;
 mod consts;
 use consts::*;
@@ -64,7 +65,8 @@ fn validate_canvas_size(width: u16, height: u16) -> bool {
 
 #[macroquad::main("plow")]
 async fn main() {
-    println!("plow!");
+    let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
+    println!("{}", plow_header);
     let canvas_width = 100;
     let canvas_height = 100;
     if !validate_canvas_size(canvas_width, canvas_height) {
@@ -116,13 +118,24 @@ async fn main() {
             camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
+        // define ui
+        let mut mouse_over_ui = false;
+        egui_macroquad::ui(|egui_ctx| {
+            egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, "topbar")
+                .show(egui_ctx, |ui| {
+                    ui.label(format!("untitled - {}", plow_header))
+                });
+            mouse_over_ui = egui_ctx.is_pointer_over_area();
+        });
+
         // cursor is the mouse position in world/canvas coordinates
         let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
         let cursor_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
         let cursor_in_canvas = cursor_x >= 0.
             && (cursor_x as u16) < canvas_width
             && cursor_y >= 0.
-            && (cursor_y as u16) < canvas_height;
+            && (cursor_y as u16) < canvas_height
+            && !mouse_over_ui;
 
         if cursor_in_canvas && is_mouse_button_down(MouseButton::Left) {
             // draw pixel if LMB is pressed
@@ -171,9 +184,9 @@ async fn main() {
             );
         }
 
-        // draw fps
-        draw_rectangle(10., 10., 40., 20., WHITE);
-        draw_text(&get_fps().to_string(), 20., 20., 16., BLACK);
+        // draw ui
+
+        egui_macroquad::draw();
 
         next_frame().await
     }

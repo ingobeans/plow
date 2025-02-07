@@ -1,7 +1,9 @@
 [package]
 name = "plow"
-version = "0.1.21"
+version = "0.1.22"
 edition = "2021"
 
 [dependencies]
 macroquad = "0.4.13"
+# version of egui-macroquad that works with macroquad 0.4.13
+egui-macroquad = { git = "https://github.com/Gyorgy0/egui-macroquad.git" }
