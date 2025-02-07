@@ -60,14 +60,23 @@ fn gen_empty_image(width: u16, height: u16) -> Image {
     }
 }
 
-fn validate_canvas_size(width: u16, height: u16) -> bool {
-    if width.max(height) > 32768 {
+fn validate_canvas_size(canvas_width: u16, canvas_height: u16) -> bool {
+    if canvas_width.max(canvas_height) > 32768 {
         return false;
     }
-    if width as u64 * height as u64 > 1073676289 {
+    if canvas_width as u64 * canvas_height as u64 > 1073676289 {
         return false;
     }
     true
+}
+
+fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
+    // make zoom to show entire canvas height
+    let camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
+    // make camera position default be at center of canvas
+    let camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
+    let camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
+    (camera_grid_size, camera_x, camera_y)
 }
 
 #[macroquad::main("plow")]
@@ -84,10 +93,8 @@ async fn main() {
     println!("created {}x{} image!", canvas_width, canvas_height);
 
     // make zoom to show entire canvas height
-    let mut camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
-    // make camera position default be at center of canvas
-    let mut camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
-    let mut camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
+    let (mut camera_grid_size, mut camera_x, mut camera_y) =
+        generate_camera_bounds_to_fit(canvas_width, canvas_height);
 
     let grid_material = get_grid_material();
     let mut canvas = Canvas {
@@ -138,6 +145,8 @@ async fn main() {
                 canvas_height = image.height() as u16;
                 canvas.image = image;
                 update_texture(&mut canvas_texture, &canvas.image, None);
+                (camera_grid_size, camera_x, camera_y) =
+                    generate_camera_bounds_to_fit(canvas_width, canvas_height);
             } else {
                 println!("image failed to load");
             }
