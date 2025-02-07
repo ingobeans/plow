@@ -37,6 +37,13 @@ fn update_region(texture: &Texture2D, image: &Image, region: Rect) {
     texture.update_part(&image.sub_image(region), region.x as i32, region.y as i32, region.w as i32, region.h as i32);
 }
 
+fn gen_empty_image(width: u16, height: u16) -> Image {
+    let bytes = vec![0; width as usize*height as usize*4];
+    Image {
+        width,bytes,height
+    }
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     println!("plow!");
@@ -49,9 +56,8 @@ async fn main() {
     let mut camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
 
     let grid_material = get_grid_material();
-
     let mut canvas = Canvas {
-        image: Image::gen_image_color(canvas_width, canvas_height, Color::from_rgba(0, 0, 0, 0)),
+        image: gen_empty_image(canvas_width, canvas_height)
     };
 
     let canvas_texture = Texture2D::from_image(&canvas.image);
