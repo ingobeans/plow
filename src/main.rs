@@ -49,7 +49,7 @@ async fn main() {
         image: Image::gen_image_color(canvas_width, canvas_height, Color::from_rgba(0, 0, 0, 0)),
     };
 
-    let mut canvas_texture = Texture2D::from_image(&canvas.image);
+    let canvas_texture = Texture2D::from_image(&canvas.image);
     canvas_texture.set_filter(FilterMode::Nearest);
 
     loop {
@@ -92,8 +92,7 @@ async fn main() {
             canvas
                 .image
                 .set_pixel(mouse_world_x as u32, mouse_world_y as u32, WHITE);
-            canvas_texture = Texture2D::from_image(&canvas.image);
-            canvas_texture.set_filter(FilterMode::Nearest);
+            canvas_texture.update(&canvas.image);
         }
 
         // draw grid background behind canvas
