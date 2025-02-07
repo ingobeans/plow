@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 pub const BG_COLOR: Color = color_u8!(14, 14, 14, 255);
-pub const BORDER_WIDTH: f32 = 8.;
+pub const BORDER_WIDTH: f32 = 2.;
 pub const SCROLL_AMT: f32 = 1.1;
 
 const DEFAULT_VERTEX: &str = r#"#version 100
