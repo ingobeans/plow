@@ -109,8 +109,8 @@ async fn main() {
         // draw canvas
         let draw_params = DrawTextureParams {
             dest_size: Some(vec2(
-                canvas_width as f32 * camera_grid_size,
-                canvas_height as f32 * camera_grid_size,
+                (canvas_width as f32 * camera_grid_size).floor(),
+                (canvas_height as f32 * camera_grid_size).floor(),
             )),
             ..Default::default()
         };
@@ -120,7 +120,7 @@ async fn main() {
         if cursor_in_canvas {
             let cursor_x = mouse_world_x * camera_grid_size - camera_x;
             let cursor_y = mouse_world_y * camera_grid_size - camera_y;
-            draw_cursor_at(cursor_x, cursor_y, camera_grid_size);
+            draw_cursor_at(cursor_x.floor(), cursor_y.floor(), camera_grid_size);
         }
 
         // draw fps
