@@ -8,39 +8,47 @@ struct Canvas {
 
 fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
     draw_rectangle_lines(
-        cursor_x,
-        cursor_y,
-        camera_grid_size,
-        camera_grid_size,
-        BORDER_WIDTH,
+        cursor_x - 3.,
+        cursor_y - 3.,
+        camera_grid_size + 6.,
+        camera_grid_size + 6.,
+        2.,
         BLACK,
     );
     draw_rectangle_lines(
-        cursor_x + BORDER_WIDTH / 2.,
-        cursor_y + BORDER_WIDTH / 2.,
-        camera_grid_size - BORDER_WIDTH,
-        camera_grid_size - BORDER_WIDTH,
-        BORDER_WIDTH,
+        cursor_x + -2.,
+        cursor_y + -2.,
+        camera_grid_size + 4.,
+        camera_grid_size + 4.,
+        2.,
         WHITE,
     );
     draw_rectangle_lines(
-        cursor_x + BORDER_WIDTH,
-        cursor_y + BORDER_WIDTH,
-        camera_grid_size - BORDER_WIDTH * 2.,
-        camera_grid_size - BORDER_WIDTH * 2.,
-        BORDER_WIDTH,
+        cursor_x - 1.,
+        cursor_y - 1.,
+        camera_grid_size + 2.,
+        camera_grid_size + 2.,
+        2.,
         BLACK,
     );
 }
 
 fn update_region(texture: &Texture2D, image: &Image, region: Rect) {
-    texture.update_part(&image.sub_image(region), region.x as i32, region.y as i32, region.w as i32, region.h as i32);
+    texture.update_part(
+        &image.sub_image(region),
+        region.x as i32,
+        region.y as i32,
+        region.w as i32,
+        region.h as i32,
+    );
 }
 
 fn gen_empty_image(width: u16, height: u16) -> Image {
-    let bytes = vec![0; width as usize*height as usize*4];
+    let bytes = vec![0; width as usize * height as usize * 4];
     Image {
-        width,bytes,height
+        width,
+        bytes,
+        height,
     }
 }
 
@@ -58,7 +66,7 @@ async fn main() {
 
     let grid_material = get_grid_material();
     let mut canvas = Canvas {
-        image: gen_empty_image(canvas_width, canvas_height)
+        image: gen_empty_image(canvas_width, canvas_height),
     };
 
     let canvas_texture = Texture2D::from_image(&canvas.image);
@@ -92,25 +100,30 @@ async fn main() {
             camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
-        let mouse_world_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
-        let mouse_world_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
-        let cursor_in_canvas = mouse_world_x >= 0.
-            && (mouse_world_x as u16) < canvas_width
-            && mouse_world_y >= 0.
-            && (mouse_world_y as u16) < canvas_height;
+        // cursor is the mouse position in world/canvas coordinates
+        let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
+        let cursor_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
+        let cursor_in_canvas = cursor_x >= 0.
+            && (cursor_x as u16) < canvas_width
+            && cursor_y >= 0.
+            && (cursor_y as u16) < canvas_height;
 
         if cursor_in_canvas && is_mouse_button_down(MouseButton::Left) {
             // draw pixel if LMB is pressed
             canvas
                 .image
-                .set_pixel(mouse_world_x as u32, mouse_world_y as u32, WHITE);
-            
-            update_region(&canvas_texture, &canvas.image, Rect {
-                x: mouse_world_x,
-                y: mouse_world_y,
-                w: 1.,
-                h: 1.
-            });
+                .set_pixel(cursor_x as u32, cursor_y as u32, WHITE);
+
+            update_region(
+                &canvas_texture,
+                &canvas.image,
+                Rect {
+                    x: cursor_x,
+                    y: cursor_y,
+                    w: 1.,
+                    h: 1.,
+                },
+            );
         }
 
         // draw grid background behind canvas
@@ -135,9 +148,11 @@ async fn main() {
 
         // draw cursor (if in bounds)
         if cursor_in_canvas {
-            let cursor_x = mouse_world_x * camera_grid_size - camera_x;
-            let cursor_y = mouse_world_y * camera_grid_size - camera_y;
-            draw_cursor_at(cursor_x.floor(), cursor_y.floor(), camera_grid_size);
+            draw_cursor_at(
+                (cursor_x * camera_grid_size - camera_x).floor(),
+                (cursor_y * camera_grid_size - camera_y).floor(),
+                camera_grid_size.floor(),
+            );
         }
 
         // draw fps

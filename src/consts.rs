@@ -1,6 +1,5 @@
 use macroquad::prelude::*;
 pub const BG_COLOR: Color = color_u8!(14, 14, 14, 255);
-pub const BORDER_WIDTH: f32 = 2.;
 pub const SCROLL_AMT: f32 = 1.1;
 pub const MIN_ZOOM: f32 = 0.001;
 
