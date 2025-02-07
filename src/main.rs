@@ -65,9 +65,9 @@ async fn main() {
         let mouse = mouse_position();
         if scroll.1 != 0. {
             let amt = if scroll.1 > 0. {
-                1. / (scroll.1 / 110.)
+                1. / SCROLL_AMT
             } else {
-                scroll.1 / -110.
+                SCROLL_AMT
             };
             // store old mouse position (in world position)
             let old_mouse_world_x = (mouse.0 + camera_x) / camera_grid_size;
