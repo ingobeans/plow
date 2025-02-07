@@ -50,7 +50,8 @@ async fn main() {
     let canvas_width = 100;
     let canvas_height = 100;
 
-    let mut camera_grid_size: f32 = 35.;
+    // make zoom to show entire canvas height
+    let mut camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
     // make camera position default be at center of canvas
     let mut camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
     let mut camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
@@ -85,7 +86,7 @@ async fn main() {
             let old_mouse_world_y = (mouse.1 + camera_y) / camera_grid_size;
             // update grid size
             camera_grid_size /= amt;
-            camera_grid_size = camera_grid_size.max(0.1);
+            camera_grid_size = camera_grid_size.max(MIN_ZOOM);
             // move camera position to zoom towards cursor
             // by comparing old world mouse position
             camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
