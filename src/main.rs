@@ -1,5 +1,3 @@
-use std::default;
-
 use egui_macroquad::egui::{self, Layout};
 use macroquad::prelude::*;
 mod consts;
