@@ -52,11 +52,26 @@ fn gen_empty_image(width: u16, height: u16) -> Image {
     }
 }
 
+fn validate_canvas_size(width: u16, height: u16) -> bool {
+    if width.max(height) > 32768 {
+        return false;
+    }
+    if width as u64 * height as u64 > 1073676289 {
+        return false;
+    }
+    true
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     println!("plow!");
     let canvas_width = 100;
     let canvas_height = 100;
+    if !validate_canvas_size(canvas_width, canvas_height) {
+        println!("image too big! no dimension may be greater than 32768, and the product of the width and height may not be greater than 1073676289");
+        return;
+    }
+    println!("created {}x{} image!", canvas_width, canvas_height);
 
     // make zoom to show entire canvas height
     let mut camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
@@ -71,6 +86,7 @@ async fn main() {
 
     let canvas_texture = Texture2D::from_image(&canvas.image);
     canvas_texture.set_filter(FilterMode::Nearest);
+    println!("created texture!");
 
     loop {
         clear_background(BG_COLOR);
