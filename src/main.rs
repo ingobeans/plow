@@ -33,8 +33,13 @@ fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
     );
 }
 
+fn update_region(texture: &Texture2D, image: &Image, region: Rect) {
+    texture.update_part(&image.sub_image(region), region.x as i32, region.y as i32, region.w as i32, region.h as i32);
+}
+
 #[macroquad::main("plow")]
 async fn main() {
+    println!("plow!");
     let canvas_width = 100;
     let canvas_height = 100;
 
@@ -92,7 +97,13 @@ async fn main() {
             canvas
                 .image
                 .set_pixel(mouse_world_x as u32, mouse_world_y as u32, WHITE);
-            canvas_texture.update(&canvas.image);
+            
+            update_region(&canvas_texture, &canvas.image, Rect {
+                x: mouse_world_x,
+                y: mouse_world_y,
+                w: 1.,
+                h: 1.
+            });
         }
 
         // draw grid background behind canvas
