@@ -2,6 +2,7 @@ use egui_macroquad::egui::{self, Layout};
 use macroquad::prelude::*;
 mod consts;
 use consts::*;
+use quad_files::{FileInputResult, FilePicker};
 
 struct Canvas {
     image: Image,
@@ -34,14 +35,20 @@ fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
     );
 }
 
-fn update_region(texture: &Texture2D, image: &Image, region: Rect) {
-    texture.update_part(
-        &image.sub_image(region),
-        region.x as i32,
-        region.y as i32,
-        region.w as i32,
-        region.h as i32,
-    );
+/// Update texture from image. Region specifies which region of texture to update, if None, updates entire texture.
+fn update_texture(texture: &mut Texture2D, image: &Image, region: Option<Rect>) {
+    if let Some(region) = region {
+        texture.update_part(
+            &image.sub_image(region),
+            region.x as i32,
+            region.y as i32,
+            region.w as i32,
+            region.h as i32,
+        );
+    } else {
+        *texture = Texture2D::from_image(image);
+        texture.set_filter(FilterMode::Nearest);
+    }
 }
 
 fn gen_empty_image(width: u16, height: u16) -> Image {
@@ -67,8 +74,9 @@ fn validate_canvas_size(width: u16, height: u16) -> bool {
 async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
     println!("{}", plow_header);
-    let canvas_width = 100;
-    let canvas_height = 100;
+
+    let mut canvas_width = 100;
+    let mut canvas_height = 100;
     if !validate_canvas_size(canvas_width, canvas_height) {
         println!("image too big! no dimension may be greater than 32768, and the product of the width and height may not be greater than 1073676289");
         return;
@@ -86,9 +94,12 @@ async fn main() {
         image: gen_empty_image(canvas_width, canvas_height),
     };
 
-    let canvas_texture = Texture2D::from_image(&canvas.image);
+    let mut canvas_texture = Texture2D::from_image(&canvas.image);
     canvas_texture.set_filter(FilterMode::Nearest);
     println!("created texture!");
+
+    // set up file picker
+    let mut file_picker = FilePicker::new();
 
     loop {
         clear_background(BG_COLOR);
@@ -118,18 +129,34 @@ async fn main() {
             camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
+        // check if image has been loaded from file picker
+        if let FileInputResult::Data(data) = file_picker.update() {
+            println!("got data!");
+            let image = Image::from_file_with_format(&data, None);
+            if let Ok(image) = image {
+                canvas_width = image.width() as u16;
+                canvas_height = image.height() as u16;
+                canvas.image = image;
+                update_texture(&mut canvas_texture, &canvas.image, None);
+            } else {
+                println!("image failed to load");
+            }
+        }
+
         // define ui
         let mut mouse_over_ui = false;
         egui_macroquad::ui(|egui_ctx| {
-            egui::TopBottomPanel::new(egui::panel::TopBottomSide::Top, "topbar").show(
-                egui_ctx,
-                |ui| {
-                    ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
-                        ui.label(format!("[untitled - {}]", plow_header));
-                        ui.label(format!("fps: {}", get_fps()));
+            egui::TopBottomPanel::top("topbar").show(egui_ctx, |ui| {
+                ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
+                    ui.label(format!("[untitled - {}]", plow_header));
+                    ui.menu_button("image", |ui| {
+                        if ui.button("open image").clicked() {
+                            file_picker.open_dialog();
+                        }
                     });
-                },
-            );
+                    ui.label(format!("fps: {}", get_fps()));
+                });
+            });
             mouse_over_ui = egui_ctx.is_pointer_over_area();
         });
 
@@ -148,15 +175,15 @@ async fn main() {
                 .image
                 .set_pixel(cursor_x as u32, cursor_y as u32, WHITE);
 
-            update_region(
-                &canvas_texture,
+            update_texture(
+                &mut canvas_texture,
                 &canvas.image,
-                Rect {
+                Some(Rect {
                     x: cursor_x,
                     y: cursor_y,
                     w: 1.,
                     h: 1.,
-                },
+                }),
             );
         }
 
