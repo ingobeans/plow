@@ -40,36 +40,12 @@ fn update_texture(texture: &mut Texture2D, image: &Image, region: Option<Rect>) 
         *texture = texture_from(image);
     }
 }
-pub fn draw_line_image(
-    image: &mut Image,
-    color: Color,
-    x1: i16,
-    y1: i16,
-    x2: i16,
-    y2: i16,
-) -> (Option<i16>, Option<i16>, Option<i16>, Option<i16>) {
-    let mut min_x = None;
-    let mut min_y = None;
-    let mut max_x = None;
-    let mut max_y = None;
+pub fn draw_line_image(layer: &mut Layer, color: Color, x1: i16, y1: i16, x2: i16, y2: i16) {
     for (x, y) in Bresenham::new((x1, y1), (x2, y2)) {
-        if x >= 0 && x < image.width() as i16 && y >= 0 && y < image.height() as i16 {
-            if min_x.is_none() || min_x.unwrap() > x {
-                min_x = Some(x);
-            }
-            if min_y.is_none() || min_y.unwrap() > y {
-                min_y = Some(y);
-            }
-            if max_x.is_none() || max_x.unwrap() < x {
-                max_x = Some(x);
-            }
-            if max_y.is_none() || max_y.unwrap() < y {
-                max_y = Some(y);
-            }
-            image.set_pixel(x as u32, y as u32, color);
+        if x >= 0 && x < layer.width() as i16 && y >= 0 && y < layer.height() as i16 {
+            layer.set_pixel(x as u32, y as u32, color);
         }
     }
-    (min_x, min_y, max_x, max_y)
 }
 
 pub struct Layer {
@@ -77,6 +53,10 @@ pub struct Layer {
     pub visible: bool,
     pub image: Image,
     pub texture: Texture2D,
+    pub modified_min_x: Option<u32>,
+    pub modified_min_y: Option<u32>,
+    pub modified_max_x: Option<u32>,
+    pub modified_max_y: Option<u32>,
 }
 
 impl Hash for Layer {
@@ -93,9 +73,54 @@ impl Layer {
             name,
             visible: true,
             texture,
+            modified_min_x: None,
+            modified_min_y: None,
+            modified_max_x: None,
+            modified_max_y: None,
         }
     }
-    pub fn update_texture(&mut self, region: Option<Rect>) {
+    pub fn width(&self) -> usize {
+        self.image.width()
+    }
+    pub fn height(&self) -> usize {
+        self.image.height()
+    }
+    pub fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
+        if self.modified_min_x.is_none() || self.modified_min_x.unwrap() > x {
+            self.modified_min_x = Some(x);
+        }
+        if self.modified_min_y.is_none() || self.modified_min_y.unwrap() > y {
+            self.modified_min_y = Some(y);
+        }
+        if self.modified_max_x.is_none() || self.modified_max_x.unwrap() < x {
+            self.modified_max_x = Some(x);
+        }
+        if self.modified_max_y.is_none() || self.modified_max_y.unwrap() < y {
+            self.modified_max_y = Some(y);
+        }
+        self.image.set_pixel(x, y, color);
+    }
+    pub fn flush_texture(&mut self) {
+        if self.modified_min_x.is_some() {
+            let modified_min_x = self.modified_min_x.unwrap();
+            let modified_min_y = self.modified_min_y.unwrap();
+            let region_width = self.modified_max_x.unwrap() - modified_min_x + 1;
+            let region_height = self.modified_max_y.unwrap() - modified_min_y + 1;
+            self.force_update_region(Some(Rect {
+                x: modified_min_x as f32,
+                y: modified_min_y as f32,
+                w: region_width as f32,
+                h: region_height as f32,
+            }));
+        }
+
+        self.modified_min_x = None;
+        self.modified_min_y = None;
+        self.modified_max_x = None;
+        self.modified_max_y = None;
+    }
+
+    pub fn force_update_region(&mut self, region: Option<Rect>) {
         update_texture(&mut self.texture, &self.image, region);
     }
 }

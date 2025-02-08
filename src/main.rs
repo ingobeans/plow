@@ -258,8 +258,7 @@ async fn main() {
         let cursor_in_canvas = cursor_x >= 0
             && (cursor_x) < canvas.width as i16
             && cursor_y >= 0
-            && (cursor_y) < canvas.height as i16
-            && !mouse_over_ui;
+            && (cursor_y) < canvas.height as i16;
 
         // handle input
         if !mouse_over_ui && is_mouse_button_down(MouseButton::Middle) {
@@ -285,7 +284,7 @@ async fn main() {
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
 
-        if cursor_in_canvas {
+        if !mouse_over_ui {
             active_tool.draw(ToolContext {
                 layer: &mut canvas.layers[canvas.current_layer],
                 cursor_x,
