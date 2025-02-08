@@ -72,9 +72,90 @@ impl Tool for Brush {
         }
     }
 }
+
+fn flood_fill(
+    width: usize,
+    height: usize,
+    unordered_pixels: &mut [[u8; 4]],
+    x: usize,
+    y: usize,
+    target_color: [f32; 4],
+) {
+    // convert target_color to u8
+    let target_color: [u8; 4] = [
+        (target_color[0] * 255.).round() as u8,
+        (target_color[1] * 255.).round() as u8,
+        (target_color[2] * 255.).round() as u8,
+        (target_color[3] * 255.).round() as u8,
+    ];
+
+    // order pixels in to 2d array (indexed by [x][y])
+    let mut pixels: Vec<Vec<&mut [u8; 4]>> = Vec::new();
+    for (index, pixel) in unordered_pixels.into_iter().enumerate() {
+        let x = index % width;
+        if x >= pixels.len() {
+            pixels.push(Vec::new());
+        }
+        pixels[x].push(pixel);
+    }
+
+    let dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+    let row = vec![false; height];
+    let mut visited: Vec<Vec<bool>> = vec![row.clone(); width];
+    let mut buf: Vec<(usize, usize)> = vec![(x, y)];
+    visited[x][y] = true;
+    while !buf.is_empty() {
+        let item = buf.pop().unwrap();
+        let x = item.0;
+        let y = item.1;
+        let old_color = pixels[x][y].clone();
+        *pixels[x][y] = target_color;
+        for dir in dirs {
+            let x = (x as isize + dir[0]).try_into();
+            let y = (y as isize + dir[1]).try_into();
+            let valid = x.is_ok() && y.is_ok() && x.unwrap() < width && y.unwrap() < height;
+            if valid {
+                let x: usize = x.unwrap();
+                let y: usize = y.unwrap();
+                let has_been_visited = visited[x][y];
+                if !has_been_visited {
+                    if *pixels[x][y] == old_color {
+                        buf.push((x, y));
+                        visited[x][y] = true;
+                    }
+                }
+            }
+        }
+    }
+}
 pub struct Bucket;
 impl Tool for Bucket {
     fn name(&self) -> String {
         String::from("bucket")
+    }
+    fn draw(&self, ctx: ToolContext) {
+        let draw_color = if is_mouse_button_pressed(MouseButton::Left) {
+            Some(ctx.primary_color)
+        } else if is_mouse_button_pressed(MouseButton::Right) {
+            Some(ctx.secondary_color)
+        } else {
+            None
+        };
+        if let Some(draw_color) = draw_color {
+            let width = ctx.layer.width();
+            let height = ctx.layer.height();
+            let pixels: &mut [[u8; 4]] = ctx.layer.image.get_image_data_mut();
+
+            flood_fill(
+                width,
+                height,
+                pixels,
+                ctx.cursor_x as usize,
+                ctx.cursor_y as usize,
+                draw_color,
+            );
+            ctx.layer.force_update_region(None);
+        }
     }
 }
