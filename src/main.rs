@@ -76,6 +76,9 @@ async fn main() {
     let mut rename_layer_window_open = false;
     let mut rename_layer_text = String::new();
 
+    let mut last_cursor_x: Option<f32> = None;
+    let mut last_cursor_y: Option<f32> = None;
+
     loop {
         clear_background(BG_COLOR);
 
@@ -272,7 +275,7 @@ async fn main() {
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
 
-        if cursor_in_canvas {
+        if true || cursor_in_canvas {
             // draw pixel if LMB is pressed
 
             let draw_color = if is_mouse_button_down(MouseButton::Left) {
@@ -283,18 +286,43 @@ async fn main() {
                 None
             };
             if let Some(draw_color) = draw_color {
-                canvas.layers[canvas.current_layer].image.set_pixel(
-                    cursor_x as u32,
-                    cursor_y as u32,
-                    draw_color,
-                );
+                if let Some(last_cursor_x) = last_cursor_x {
+                    if let Some(last_cursor_y) = last_cursor_y {
+                        let (region_x, region_y, region_max_x, region_max_y) = draw_line_image(
+                            &mut canvas.layers[canvas.current_layer].image,
+                            draw_color,
+                            last_cursor_x as i16,
+                            last_cursor_y as i16,
+                            cursor_x as i16,
+                            cursor_y as i16,
+                        );
+                        if region_x.is_some() {
+                            let region_x = region_x.unwrap();
+                            let region_y = region_y.unwrap();
+                            let region_width = region_max_x.unwrap() - region_x + 1;
+                            let region_height = region_max_y.unwrap() - region_y + 1;
+                            canvas.layers[canvas.current_layer].update_texture(Some(Rect {
+                                x: region_x as f32,
+                                y: region_y as f32,
+                                w: region_width as f32,
+                                h: region_height as f32,
+                            }));
+                        }
+                    }
+                } else {
+                    canvas.layers[canvas.current_layer].image.set_pixel(
+                        cursor_x as u32,
+                        cursor_y as u32,
+                        draw_color,
+                    );
 
-                canvas.layers[canvas.current_layer].update_texture(Some(Rect {
-                    x: cursor_x,
-                    y: cursor_y,
-                    w: 1.,
-                    h: 1.,
-                }));
+                    canvas.layers[canvas.current_layer].update_texture(Some(Rect {
+                        x: cursor_x,
+                        y: cursor_y,
+                        w: 1.,
+                        h: 1.,
+                    }));
+                }
             }
         }
 
@@ -340,7 +368,8 @@ async fn main() {
         // draw ui
 
         egui_macroquad::draw();
-
+        last_cursor_x = Some(cursor_x);
+        last_cursor_y = Some(cursor_y);
         next_frame().await
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "plow"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 
 [dependencies]
@@ -13,3 +13,4 @@ sapp-jsutils = "0.1.7"
 quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 # my modded version of egui-dnd that doesnt use wasm-bindgen
 quad-egui-dnd = { git = "https://github.com/ingobeans/cool_egui_dnd.git" }
+line_drawing = "1.0.0"

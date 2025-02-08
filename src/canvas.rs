@@ -1,3 +1,4 @@
+use line_drawing::Bresenham;
 use macroquad::prelude::*;
 use std::hash::Hash;
 
@@ -38,6 +39,39 @@ fn update_texture(texture: &mut Texture2D, image: &Image, region: Option<Rect>) 
     } else {
         *texture = texture_from(image);
     }
+}
+pub fn draw_line_image(
+    image: &mut Image,
+    color: Color,
+    x1: i16,
+    y1: i16,
+    x2: i16,
+    y2: i16,
+) -> (Option<i16>, Option<i16>, Option<i16>, Option<i16>) {
+    let mut min_x = None;
+    let mut min_y = None;
+    let mut max_x = None;
+    let mut max_y = None;
+    for (x, y) in Bresenham::new((x1, y1), (x2, y2)) {
+        if x >= 0 && x < image.width() as i16 {
+            if y >= 0 && y < image.height() as i16 {
+                if min_x.is_none() || min_x.unwrap() > x {
+                    min_x = Some(x);
+                }
+                if min_y.is_none() || min_y.unwrap() > y {
+                    min_y = Some(y);
+                }
+                if max_x.is_none() || max_x.unwrap() < x {
+                    max_x = Some(x);
+                }
+                if max_y.is_none() || max_y.unwrap() < y {
+                    max_y = Some(y);
+                }
+                image.set_pixel(x as u32, y as u32, color);
+            }
+        }
+    }
+    (min_x, min_y, max_x, max_y)
 }
 
 pub struct Layer {
