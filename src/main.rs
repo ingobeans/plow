@@ -49,7 +49,7 @@ async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
     println!("{}", plow_header);
 
-    let mut canvas = Canvas::new(100, 100).unwrap();
+    let mut canvas = Canvas::new(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT).unwrap();
     let tools = get_tools();
     let mut active_tool = tools.first().unwrap();
 
@@ -100,7 +100,9 @@ async fn main() {
                     ui.menu_button("file", |ui| {
                         if ui.button("new").clicked() {
                             ui.close_menu();
-                            new_file_window_open = !new_file_window_open;
+                            new_file_window_open = true;
+                            new_file_width = DEFAULT_CANVAS_WIDTH.to_string();
+                            new_file_height = DEFAULT_CANVAS_HEIGHT.to_string();
                         };
                         if ui.button("open").clicked() {
                             ui.close_menu();
