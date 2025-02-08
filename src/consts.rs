@@ -3,6 +3,9 @@ pub const BG_COLOR: Color = color_u8!(14, 14, 14, 255);
 pub const SCROLL_AMT: f32 = 1.1;
 pub const MIN_ZOOM: f32 = 0.001;
 
+pub const DEFAULT_PRIMARY_COLOR: [f32; 4] = [0., 0., 0., 1.];
+pub const DEFAULT_SECONDARY_COLOR: [f32; 4] = [1., 1., 1., 1.];
+
 const DEFAULT_VERTEX: &str = r#"#version 100
 precision lowp float;
 

@@ -66,8 +66,8 @@ async fn main() {
     // set up file picker
     let mut file_picker = FilePicker::new();
 
-    let mut primary_color = [1., 1., 1., 1.];
-    let mut secondary_color = [0., 0., 0., 1.];
+    let mut primary_color = DEFAULT_PRIMARY_COLOR;
+    let mut secondary_color = DEFAULT_SECONDARY_COLOR;
 
     let mut new_file_window_open = false;
     let mut new_file_width = String::new();
