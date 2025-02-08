@@ -121,7 +121,10 @@ async fn main() {
                         if tool_name == active_tool.name() {
                             button = button.highlight();
                         }
-                        if button.clicked() {
+                        // check if this tool was clicked or if its keybind was pressed
+                        if button.clicked()
+                            || (tool.keybind().is_some() && is_key_pressed(tool.keybind().unwrap()))
+                        {
                             active_tool = tool;
                         }
                     }
@@ -298,6 +301,10 @@ async fn main() {
             });
         }
 
+        // x should swap primary and secondary colors
+        if is_key_pressed(KeyCode::X) {
+            (primary_color, secondary_color) = (secondary_color, primary_color)
+        }
         // draw grid background behind canvas
         gl_use_material(&grid_material);
         draw_rectangle(

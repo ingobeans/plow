@@ -33,11 +33,17 @@ pub struct ToolContext<'a> {
 pub trait Tool {
     fn name(&self) -> String;
     fn draw(&self, ctx: ToolContext) {}
+    fn keybind(&self) -> Option<KeyCode> {
+        None
+    }
 }
 pub struct Brush;
 impl Tool for Brush {
     fn name(&self) -> String {
         String::from("brush")
+    }
+    fn keybind(&self) -> Option<KeyCode> {
+        Some(KeyCode::B)
     }
     fn draw(&self, ctx: ToolContext) {
         // draw pixel if LMB is pressed
@@ -133,6 +139,9 @@ pub struct Bucket;
 impl Tool for Bucket {
     fn name(&self) -> String {
         String::from("bucket")
+    }
+    fn keybind(&self) -> Option<KeyCode> {
+        Some(KeyCode::F)
     }
     fn draw(&self, ctx: ToolContext) {
         let draw_color = if is_mouse_button_pressed(MouseButton::Left) {
