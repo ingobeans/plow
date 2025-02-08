@@ -108,6 +108,10 @@ async fn main() {
     // set up file picker
     let mut file_picker = FilePicker::new();
 
+    let mut new_file_window_open = false;
+    let mut new_file_width = String::new();
+    let mut new_file_height = String::new();
+
     loop {
         clear_background(BG_COLOR);
 
@@ -158,14 +162,53 @@ async fn main() {
             egui::TopBottomPanel::top("topbar").show(egui_ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
                     ui.label(format!("[untitled - {}]", plow_header));
-                    ui.menu_button("image", |ui| {
-                        if ui.button("open image").clicked() {
+                    ui.menu_button("file", |ui| {
+                        if ui.button("new").clicked() {
+                            ui.close_menu();
+                            new_file_window_open = !new_file_window_open;
+                        };
+                        if ui.button("open").clicked() {
+                            ui.close_menu();
                             file_picker.open_dialog();
                         }
                     });
                     ui.label(format!("fps: {}", get_fps()));
                 });
             });
+            if new_file_window_open {
+                egui::Window::new("new file")
+                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+                    .show(egui_ctx, |ui| {
+                        ui.label("enter canvas size");
+                        egui::Grid::new("input").num_columns(2).show(ui, |ui| {
+                            ui.label("width");
+                            ui.text_edit_singleline(&mut new_file_width);
+                            ui.end_row();
+                            ui.label("height");
+                            ui.text_edit_singleline(&mut new_file_height);
+                            ui.end_row();
+                            if ui.button("okay").clicked() {
+                                if let Ok(width) = new_file_width.parse() {
+                                    if let Ok(height) = new_file_height.parse() {
+                                        canvas_width = width;
+                                        canvas_height = height;
+                                        canvas.image = gen_empty_image(width, height);
+                                        update_texture(&mut canvas_texture, &canvas.image, None);
+                                        (camera_grid_size, camera_x, camera_y) =
+                                            generate_camera_bounds_to_fit(
+                                                canvas_width,
+                                                canvas_height,
+                                            );
+                                        new_file_window_open = false;
+                                    }
+                                }
+                            };
+                            if ui.button("cancel").clicked() {
+                                new_file_window_open = false;
+                            };
+                        });
+                    });
+            }
             mouse_over_ui = egui_ctx.is_pointer_over_area();
         });
 
