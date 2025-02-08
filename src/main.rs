@@ -42,6 +42,15 @@ fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32,
     (camera_grid_size, camera_x, camera_y)
 }
 
+fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
+    Color::from_rgba(
+        (rgb[0] * 255.).floor() as u8,
+        (rgb[1] * 255.).floor() as u8,
+        (rgb[2] * 255.).floor() as u8,
+        (rgb[3] * 255.).floor() as u8,
+    )
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
@@ -56,6 +65,9 @@ async fn main() {
     let grid_material = get_grid_material();
     // set up file picker
     let mut file_picker = FilePicker::new();
+
+    let mut primary_color = [1., 1., 1., 1.];
+    let mut secondary_color = [0., 0., 0., 1.];
 
     let mut new_file_window_open = false;
     let mut new_file_width = String::new();
@@ -122,6 +134,12 @@ async fn main() {
                     ui.label(format!("fps: {}", get_fps()));
                 });
             });
+            // color picker
+            egui::Window::new("colors").show(egui_ctx, |ui| {
+                ui.color_edit_button_rgba_unmultiplied(&mut primary_color);
+                ui.color_edit_button_rgba_unmultiplied(&mut secondary_color);
+            });
+
             // draw layers window
             egui::Window::new("layers")
                 .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(0., 0.))
@@ -197,20 +215,30 @@ async fn main() {
             && (cursor_y as u16) < canvas.height
             && !mouse_over_ui;
 
-        if cursor_in_canvas && is_mouse_button_down(MouseButton::Left) {
+        if cursor_in_canvas {
             // draw pixel if LMB is pressed
-            canvas.layers[canvas.current_layer].image.set_pixel(
-                cursor_x as u32,
-                cursor_y as u32,
-                WHITE,
-            );
 
-            canvas.layers[canvas.current_layer].update_texture(Some(Rect {
-                x: cursor_x,
-                y: cursor_y,
-                w: 1.,
-                h: 1.,
-            }));
+            let draw_color = if is_mouse_button_down(MouseButton::Left) {
+                Some(rgb_array_to_color(&primary_color))
+            } else if is_mouse_button_down(MouseButton::Right) {
+                Some(rgb_array_to_color(&secondary_color))
+            } else {
+                None
+            };
+            if let Some(draw_color) = draw_color {
+                canvas.layers[canvas.current_layer].image.set_pixel(
+                    cursor_x as u32,
+                    cursor_y as u32,
+                    draw_color,
+                );
+
+                canvas.layers[canvas.current_layer].update_texture(Some(Rect {
+                    x: cursor_x,
+                    y: cursor_y,
+                    w: 1.,
+                    h: 1.,
+                }));
+            }
         }
 
         // draw grid background behind canvas
