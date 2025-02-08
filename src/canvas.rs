@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use std::hash::Hash;
 
 fn gen_empty_image(width: u16, height: u16) -> Image {
     let bytes = vec![0; width as usize * height as usize * 4];
@@ -46,6 +47,12 @@ pub struct Layer {
     pub texture: Texture2D,
 }
 
+impl Hash for Layer {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
 impl Layer {
     pub fn new(image: Image, name: String) -> Self {
         let texture = texture_from(&image);
@@ -88,12 +95,24 @@ impl Canvas {
         Canvas::from_image(image)
     }
     pub fn new_layer(&mut self) {
+        // get a name for the new layer (that isnt already used!!!!!)
+        let mut layer_name_index = self.layers.len() + 1;
+        let mut name = format!("layer {}", layer_name_index);
+        let names = self
+            .layers
+            .iter()
+            .map(|f| &f.name)
+            .collect::<Vec<&String>>();
+        while names.contains(&&name) {
+            layer_name_index += 1;
+            name = format!("layer {}", layer_name_index);
+        }
+
         let image = gen_empty_image(self.width, self.height);
-        self.current_layer += 1;
-        self.layers.insert(
-            self.current_layer,
-            Layer::new(image, format!("layer {}", self.layers.len() + 1)),
-        );
+
+        self.current_layer = self.current_layer.saturating_sub(1);
+        self.layers
+            .insert(self.current_layer, Layer::new(image, name));
     }
     pub fn delete_layer(&mut self) {
         if self.layers.len() > 1 {

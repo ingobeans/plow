@@ -147,26 +147,46 @@ async fn main() {
             egui::Window::new("layers")
                 .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(0., 0.))
                 .show(egui_ctx, |ui| {
-                    egui::Grid::new("layers").num_columns(2).show(ui, |ui| {
-                        for (index, layer) in canvas.layers.iter_mut().enumerate().rev() {
-                            ui.checkbox(&mut layer.visible, "");
-                            let label = ui
-                                .label(&layer.name)
-                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-                            if label.clicked() {
-                                canvas.current_layer = index;
+                    let mut dragging_layer = None;
+                    let response = quad_egui_dnd::dnd(ui, "layers").show(
+                        canvas.layers.iter_mut().enumerate(),
+                        |ui, (index, item), handle, state| {
+                            ui.horizontal(|ui| {
+                                handle.ui(ui, |ui| {
+                                    ui.checkbox(&mut item.visible, "");
+                                    let label = ui
+                                        .button(&item.name)
+                                        .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                    if label.clicked() {
+                                        canvas.current_layer = index;
+                                    }
+                                    if state.dragged {
+                                        dragging_layer = Some(item.name.clone());
+                                    }
+                                    if label.double_clicked() {
+                                        rename_layer_text = item.name.clone();
+                                        rename_layer_window_open = true;
+                                    }
+                                    if index == canvas.current_layer {
+                                        label.highlight();
+                                    }
+                                });
+                            });
+                        },
+                    );
+                    if response.is_drag_finished() {
+                        response.update_vec(&mut canvas.layers);
+
+                        // update the canvas.current_layer to the new position of the dragged item
+                        if let Some(dragging_layer) = dragging_layer {
+                            for (index, layer) in canvas.layers.iter().enumerate() {
+                                if layer.name == dragging_layer {
+                                    canvas.current_layer = index;
+                                    break;
+                                }
                             }
-                            if label.double_clicked() {
-                                rename_layer_text = layer.name.clone();
-                                rename_layer_window_open = true;
-                            }
-                            if index == canvas.current_layer {
-                                label.highlight();
-                            }
-                            ui.end_row();
                         }
-                    });
-                    // draw bottom bar
+                    }
                     ui.separator();
                     ui.end_row();
                     if ui.button("new layer").clicked() {
@@ -188,9 +208,16 @@ async fn main() {
                                 ui.text_edit_singleline(&mut rename_layer_text);
                                 ui.end_row();
                                 if ui.button("okay").clicked() {
-                                    rename_layer_window_open = false;
-                                    canvas.layers[canvas.current_layer].name =
-                                        rename_layer_text.clone();
+                                    let names = canvas
+                                        .layers
+                                        .iter()
+                                        .map(|f| &f.name)
+                                        .collect::<Vec<&String>>();
+                                    if !names.contains(&&rename_layer_text) {
+                                        rename_layer_window_open = false;
+                                        canvas.layers[canvas.current_layer].name =
+                                            rename_layer_text.clone();
+                                    }
                                 }
                                 if ui.button("cancel").clicked() {
                                     rename_layer_window_open = false;
@@ -288,7 +315,7 @@ async fn main() {
             )),
             ..Default::default()
         };
-        for layer in &canvas.layers {
+        for layer in canvas.layers.iter().rev() {
             if layer.visible {
                 draw_texture_ex(
                     &layer.texture,
