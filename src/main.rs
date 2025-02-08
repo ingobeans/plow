@@ -79,31 +79,6 @@ async fn main() {
     loop {
         clear_background(BG_COLOR);
 
-        // handle input
-        if is_mouse_button_down(MouseButton::Middle) {
-            let mouse_delta = mouse_delta_position();
-            camera_x += mouse_delta.x as f32 * screen_width() / 2.;
-            camera_y += mouse_delta.y as f32 * screen_height() / 2.;
-        }
-        let scroll = mouse_wheel();
-        let mouse = mouse_position();
-        if scroll.1 != 0. {
-            let amt = if scroll.1 > 0. {
-                1. / SCROLL_AMT
-            } else {
-                SCROLL_AMT
-            };
-            // store old mouse position (in world position)
-            let old_mouse_world_x = (mouse.0 + camera_x) / camera_grid_size;
-            let old_mouse_world_y = (mouse.1 + camera_y) / camera_grid_size;
-            // update grid size
-            camera_grid_size /= amt;
-            camera_grid_size = camera_grid_size.max(MIN_ZOOM);
-            // move camera position to zoom towards cursor
-            // by comparing old world mouse position
-            camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
-            camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
-        }
         // check if image has been loaded from file picker
         if let FileInputResult::Data(data) = file_picker.update() {
             println!("got data!");
@@ -261,6 +236,8 @@ async fn main() {
             }
             mouse_over_ui = egui_ctx.is_pointer_over_area();
         });
+        let scroll = mouse_wheel();
+        let mouse = mouse_position();
 
         // cursor is the mouse position in world/canvas coordinates
         let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
@@ -270,6 +247,30 @@ async fn main() {
             && cursor_y >= 0.
             && (cursor_y as u16) < canvas.height
             && !mouse_over_ui;
+
+        // handle input
+        if !mouse_over_ui && is_mouse_button_down(MouseButton::Middle) {
+            let mouse_delta = mouse_delta_position();
+            camera_x += mouse_delta.x as f32 * screen_width() / 2.;
+            camera_y += mouse_delta.y as f32 * screen_height() / 2.;
+        }
+        if !mouse_over_ui && scroll.1 != 0. {
+            let amt = if scroll.1 > 0. {
+                1. / SCROLL_AMT
+            } else {
+                SCROLL_AMT
+            };
+            // store old mouse position (in world position)
+            let old_mouse_world_x = (mouse.0 + camera_x) / camera_grid_size;
+            let old_mouse_world_y = (mouse.1 + camera_y) / camera_grid_size;
+            // update grid size
+            camera_grid_size /= amt;
+            camera_grid_size = camera_grid_size.max(MIN_ZOOM);
+            // move camera position to zoom towards cursor
+            // by comparing old world mouse position
+            camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
+            camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
+        }
 
         if cursor_in_canvas {
             // draw pixel if LMB is pressed
