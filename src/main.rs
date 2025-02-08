@@ -1,12 +1,10 @@
+use canvas::*;
 use egui_macroquad::egui::{self, Layout};
 use macroquad::prelude::*;
 mod consts;
 use consts::*;
 use quad_files::{FileInputResult, FilePicker};
-
-struct Canvas {
-    image: Image,
-}
+mod canvas;
 
 fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
     draw_rectangle_lines(
@@ -35,41 +33,6 @@ fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
     );
 }
 
-/// Update texture from image. Region specifies which region of texture to update, if None, updates entire texture.
-fn update_texture(texture: &mut Texture2D, image: &Image, region: Option<Rect>) {
-    if let Some(region) = region {
-        texture.update_part(
-            &image.sub_image(region),
-            region.x as i32,
-            region.y as i32,
-            region.w as i32,
-            region.h as i32,
-        );
-    } else {
-        *texture = Texture2D::from_image(image);
-        texture.set_filter(FilterMode::Nearest);
-    }
-}
-
-fn gen_empty_image(width: u16, height: u16) -> Image {
-    let bytes = vec![0; width as usize * height as usize * 4];
-    Image {
-        width,
-        bytes,
-        height,
-    }
-}
-
-fn validate_canvas_size(canvas_width: u16, canvas_height: u16) -> bool {
-    if canvas_width.max(canvas_height) > 32768 {
-        return false;
-    }
-    if canvas_width as u64 * canvas_height as u64 > 1073676289 {
-        return false;
-    }
-    true
-}
-
 fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
     // make zoom to show entire canvas height
     let camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
@@ -84,27 +47,13 @@ async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
     println!("{}", plow_header);
 
-    let mut canvas_width = 100;
-    let mut canvas_height = 100;
-    if !validate_canvas_size(canvas_width, canvas_height) {
-        println!("image too big! no dimension may be greater than 32768, and the product of the width and height may not be greater than 1073676289");
-        return;
-    }
-    println!("created {}x{} image!", canvas_width, canvas_height);
+    let mut canvas = Canvas::new(100, 100).unwrap();
 
     // make zoom to show entire canvas height
     let (mut camera_grid_size, mut camera_x, mut camera_y) =
-        generate_camera_bounds_to_fit(canvas_width, canvas_height);
+        generate_camera_bounds_to_fit(canvas.width, canvas.height);
 
     let grid_material = get_grid_material();
-    let mut canvas = Canvas {
-        image: gen_empty_image(canvas_width, canvas_height),
-    };
-
-    let mut canvas_texture = Texture2D::from_image(&canvas.image);
-    canvas_texture.set_filter(FilterMode::Nearest);
-    println!("created texture!");
-
     // set up file picker
     let mut file_picker = FilePicker::new();
 
@@ -145,12 +94,9 @@ async fn main() {
             println!("got data!");
             let image = Image::from_file_with_format(&data, None);
             if let Ok(image) = image {
-                canvas_width = image.width() as u16;
-                canvas_height = image.height() as u16;
-                canvas.image = image;
-                update_texture(&mut canvas_texture, &canvas.image, None);
+                canvas = Canvas::from_image(image).unwrap();
                 (camera_grid_size, camera_x, camera_y) =
-                    generate_camera_bounds_to_fit(canvas_width, canvas_height);
+                    generate_camera_bounds_to_fit(canvas.width, canvas.height);
             } else {
                 println!("image failed to load");
             }
@@ -159,6 +105,7 @@ async fn main() {
         // define ui
         let mut mouse_over_ui = false;
         egui_macroquad::ui(|egui_ctx| {
+            // draw topbar
             egui::TopBottomPanel::top("topbar").show(egui_ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
                     ui.label(format!("[untitled - {}]", plow_header));
@@ -175,38 +122,67 @@ async fn main() {
                     ui.label(format!("fps: {}", get_fps()));
                 });
             });
+            // draw layers window
+            egui::Window::new("layers")
+                .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(0., 0.))
+                .show(egui_ctx, |ui| {
+                    egui::Grid::new("layers").num_columns(2).show(ui, |ui| {
+                        for (index, layer) in canvas.layers.iter_mut().enumerate().rev() {
+                            ui.checkbox(&mut layer.visible, "");
+                            let label = ui
+                                .label(&layer.name)
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
+                            if label.clicked() {
+                                canvas.current_layer = index;
+                            }
+                            if index == canvas.current_layer {
+                                label.highlight();
+                            }
+                            ui.end_row();
+                        }
+                    });
+                    // draw bottom bar
+                    ui.separator();
+                    ui.end_row();
+                    if ui.button("new layer").clicked() {
+                        canvas.new_layer();
+                    }
+                    if ui.button("delete layer").clicked() {
+                        canvas.delete_layer();
+                    }
+                });
+            // draw new file window
             if new_file_window_open {
                 egui::Window::new("new file")
                     .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
                     .show(egui_ctx, |ui| {
                         ui.label("enter canvas size");
-                        egui::Grid::new("input").num_columns(2).show(ui, |ui| {
-                            ui.label("width");
-                            ui.text_edit_singleline(&mut new_file_width);
-                            ui.end_row();
-                            ui.label("height");
-                            ui.text_edit_singleline(&mut new_file_height);
-                            ui.end_row();
-                            if ui.button("okay").clicked() {
-                                if let Ok(width) = new_file_width.parse() {
-                                    if let Ok(height) = new_file_height.parse() {
-                                        canvas_width = width;
-                                        canvas_height = height;
-                                        canvas.image = gen_empty_image(width, height);
-                                        update_texture(&mut canvas_texture, &canvas.image, None);
-                                        (camera_grid_size, camera_x, camera_y) =
-                                            generate_camera_bounds_to_fit(
-                                                canvas_width,
-                                                canvas_height,
-                                            );
-                                        new_file_window_open = false;
+                        egui::Grid::new("new file input")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("width");
+                                ui.text_edit_singleline(&mut new_file_width);
+                                ui.end_row();
+                                ui.label("height");
+                                ui.text_edit_singleline(&mut new_file_height);
+                                ui.end_row();
+                                if ui.button("okay").clicked() {
+                                    if let Ok(width) = new_file_width.parse() {
+                                        if let Ok(height) = new_file_height.parse() {
+                                            canvas = Canvas::new(width, height).unwrap();
+                                            (camera_grid_size, camera_x, camera_y) =
+                                                generate_camera_bounds_to_fit(
+                                                    canvas.width,
+                                                    canvas.height,
+                                                );
+                                            new_file_window_open = false;
+                                        }
                                     }
-                                }
-                            };
-                            if ui.button("cancel").clicked() {
-                                new_file_window_open = false;
-                            };
-                        });
+                                };
+                                if ui.button("cancel").clicked() {
+                                    new_file_window_open = false;
+                                };
+                            });
                     });
             }
             mouse_over_ui = egui_ctx.is_pointer_over_area();
@@ -216,27 +192,25 @@ async fn main() {
         let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
         let cursor_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
         let cursor_in_canvas = cursor_x >= 0.
-            && (cursor_x as u16) < canvas_width
+            && (cursor_x as u16) < canvas.width
             && cursor_y >= 0.
-            && (cursor_y as u16) < canvas_height
+            && (cursor_y as u16) < canvas.height
             && !mouse_over_ui;
 
         if cursor_in_canvas && is_mouse_button_down(MouseButton::Left) {
             // draw pixel if LMB is pressed
-            canvas
-                .image
-                .set_pixel(cursor_x as u32, cursor_y as u32, WHITE);
-
-            update_texture(
-                &mut canvas_texture,
-                &canvas.image,
-                Some(Rect {
-                    x: cursor_x,
-                    y: cursor_y,
-                    w: 1.,
-                    h: 1.,
-                }),
+            canvas.layers[canvas.current_layer].image.set_pixel(
+                cursor_x as u32,
+                cursor_y as u32,
+                WHITE,
             );
+
+            canvas.layers[canvas.current_layer].update_texture(Some(Rect {
+                x: cursor_x,
+                y: cursor_y,
+                w: 1.,
+                h: 1.,
+            }));
         }
 
         // draw grid background behind canvas
@@ -244,20 +218,30 @@ async fn main() {
         draw_rectangle(
             -camera_x,
             -camera_y,
-            canvas_width as f32 * camera_grid_size,
-            canvas_height as f32 * camera_grid_size,
+            canvas.width as f32 * camera_grid_size,
+            canvas.height as f32 * camera_grid_size,
             WHITE,
         );
         gl_use_default_material();
         // draw canvas
         let draw_params = DrawTextureParams {
             dest_size: Some(vec2(
-                (canvas_width as f32 * camera_grid_size).floor(),
-                (canvas_height as f32 * camera_grid_size).floor(),
+                (canvas.width as f32 * camera_grid_size).floor(),
+                (canvas.height as f32 * camera_grid_size).floor(),
             )),
             ..Default::default()
         };
-        draw_texture_ex(&canvas_texture, -camera_x, -camera_y, WHITE, draw_params);
+        for layer in &canvas.layers {
+            if layer.visible {
+                draw_texture_ex(
+                    &layer.texture,
+                    -camera_x,
+                    -camera_y,
+                    WHITE,
+                    draw_params.clone(),
+                );
+            }
+        }
 
         // draw cursor (if in bounds)
         if cursor_in_canvas {
