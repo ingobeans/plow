@@ -4,7 +4,9 @@ use macroquad::prelude::*;
 mod consts;
 use consts::*;
 use quad_files::{FileInputResult, FilePicker};
+use tools::*;
 mod canvas;
+mod tools;
 
 fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
     draw_rectangle_lines(
@@ -42,21 +44,14 @@ fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32,
     (camera_grid_size, camera_x, camera_y)
 }
 
-fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
-    Color::from_rgba(
-        (rgb[0] * 255.).floor() as u8,
-        (rgb[1] * 255.).floor() as u8,
-        (rgb[2] * 255.).floor() as u8,
-        (rgb[3] * 255.).floor() as u8,
-    )
-}
-
 #[macroquad::main("plow")]
 async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
     println!("{}", plow_header);
 
     let mut canvas = Canvas::new(100, 100).unwrap();
+    let tools = get_tools();
+    let mut active_tool = tools.first().unwrap();
 
     // make zoom to show entire canvas height
     let (mut camera_grid_size, mut camera_x, mut camera_y) =
@@ -76,8 +71,8 @@ async fn main() {
     let mut rename_layer_window_open = false;
     let mut rename_layer_text = String::new();
 
-    let mut last_cursor_x: Option<f32> = None;
-    let mut last_cursor_y: Option<f32> = None;
+    let mut last_cursor_x: Option<i16> = None;
+    let mut last_cursor_y: Option<i16> = None;
 
     loop {
         clear_background(BG_COLOR);
@@ -113,6 +108,21 @@ async fn main() {
                         }
                     });
                     ui.label(format!("fps: {}", get_fps()));
+                });
+            });
+            // draw tools window
+            egui::Window::new("tools").show(egui_ctx, |ui| {
+                egui::Grid::new("tools grid").num_columns(2).show(ui, |ui| {
+                    for tool in &tools {
+                        let tool_name = tool.name();
+                        let mut button = ui.button(&tool_name);
+                        if tool_name == active_tool.name() {
+                            button = button.highlight();
+                        }
+                        if button.clicked() {
+                            active_tool = tool;
+                        }
+                    }
                 });
             });
             // color picker
@@ -243,12 +253,12 @@ async fn main() {
         let mouse = mouse_position();
 
         // cursor is the mouse position in world/canvas coordinates
-        let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor();
-        let cursor_y = ((mouse.1 + camera_y) / camera_grid_size).floor();
-        let cursor_in_canvas = cursor_x >= 0.
-            && (cursor_x as u16) < canvas.width
-            && cursor_y >= 0.
-            && (cursor_y as u16) < canvas.height
+        let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor() as i16;
+        let cursor_y = ((mouse.1 + camera_y) / camera_grid_size).floor() as i16;
+        let cursor_in_canvas = cursor_x >= 0
+            && (cursor_x) < canvas.width as i16
+            && cursor_y >= 0
+            && (cursor_y) < canvas.height as i16
             && !mouse_over_ui;
 
         // handle input
@@ -275,55 +285,16 @@ async fn main() {
             camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
         }
 
-        if true || cursor_in_canvas {
-            // draw pixel if LMB is pressed
-
-            let draw_color = if is_mouse_button_down(MouseButton::Left) {
-                Some(rgb_array_to_color(&primary_color))
-            } else if is_mouse_button_down(MouseButton::Right) {
-                Some(rgb_array_to_color(&secondary_color))
-            } else {
-                None
-            };
-            if let Some(draw_color) = draw_color {
-                if let Some(last_cursor_x) = last_cursor_x {
-                    if let Some(last_cursor_y) = last_cursor_y {
-                        let (region_x, region_y, region_max_x, region_max_y) = draw_line_image(
-                            &mut canvas.layers[canvas.current_layer].image,
-                            draw_color,
-                            last_cursor_x as i16,
-                            last_cursor_y as i16,
-                            cursor_x as i16,
-                            cursor_y as i16,
-                        );
-                        if region_x.is_some() {
-                            let region_x = region_x.unwrap();
-                            let region_y = region_y.unwrap();
-                            let region_width = region_max_x.unwrap() - region_x + 1;
-                            let region_height = region_max_y.unwrap() - region_y + 1;
-                            canvas.layers[canvas.current_layer].update_texture(Some(Rect {
-                                x: region_x as f32,
-                                y: region_y as f32,
-                                w: region_width as f32,
-                                h: region_height as f32,
-                            }));
-                        }
-                    }
-                } else {
-                    canvas.layers[canvas.current_layer].image.set_pixel(
-                        cursor_x as u32,
-                        cursor_y as u32,
-                        draw_color,
-                    );
-
-                    canvas.layers[canvas.current_layer].update_texture(Some(Rect {
-                        x: cursor_x,
-                        y: cursor_y,
-                        w: 1.,
-                        h: 1.,
-                    }));
-                }
-            }
+        if cursor_in_canvas {
+            active_tool.draw(ToolContext {
+                layer: &mut canvas.layers[canvas.current_layer],
+                cursor_x,
+                cursor_y,
+                last_cursor_x,
+                last_cursor_y,
+                primary_color,
+                secondary_color,
+            });
         }
 
         // draw grid background behind canvas
@@ -359,8 +330,8 @@ async fn main() {
         // draw cursor (if in bounds)
         if cursor_in_canvas {
             draw_cursor_at(
-                (cursor_x * camera_grid_size - camera_x).floor(),
-                (cursor_y * camera_grid_size - camera_y).floor(),
+                (cursor_x as f32 * camera_grid_size - camera_x).floor(),
+                (cursor_y as f32 * camera_grid_size - camera_y).floor(),
                 camera_grid_size.floor(),
             );
         }
