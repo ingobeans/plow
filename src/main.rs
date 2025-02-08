@@ -73,6 +73,9 @@ async fn main() {
     let mut new_file_width = String::new();
     let mut new_file_height = String::new();
 
+    let mut rename_layer_window_open = false;
+    let mut rename_layer_text = String::new();
+
     loop {
         clear_background(BG_COLOR);
 
@@ -153,6 +156,10 @@ async fn main() {
                             if label.clicked() {
                                 canvas.current_layer = index;
                             }
+                            if label.double_clicked() {
+                                rename_layer_text = layer.name.clone();
+                                rename_layer_window_open = true;
+                            }
                             if index == canvas.current_layer {
                                 label.highlight();
                             }
@@ -169,6 +176,28 @@ async fn main() {
                         canvas.delete_layer();
                     }
                 });
+            // draw rename layer window
+            if rename_layer_window_open {
+                egui::Window::new("rename layer")
+                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+                    .show(egui_ctx, |ui| {
+                        egui::Grid::new("new file input")
+                            .num_columns(2)
+                            .show(ui, |ui| {
+                                ui.label("name");
+                                ui.text_edit_singleline(&mut rename_layer_text);
+                                ui.end_row();
+                                if ui.button("okay").clicked() {
+                                    rename_layer_window_open = false;
+                                    canvas.layers[canvas.current_layer].name =
+                                        rename_layer_text.clone();
+                                }
+                                if ui.button("cancel").clicked() {
+                                    rename_layer_window_open = false;
+                                }
+                            });
+                    });
+            }
             // draw new file window
             if new_file_window_open {
                 egui::Window::new("new file")
