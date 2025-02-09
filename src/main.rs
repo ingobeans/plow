@@ -51,6 +51,7 @@ async fn main() {
 
     let mut canvas = Canvas::new(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT).unwrap();
     let tools = get_tools();
+    let mut tools_settings = ToolsSettings::new();
     let mut active_tool = tools.first().unwrap();
 
     // make zoom to show entire canvas height
@@ -97,10 +98,16 @@ async fn main() {
         // define ui
         let mut mouse_over_ui = false;
         egui_macroquad::ui(|egui_ctx| {
-            // draw topbar
+            // draw first topbar (info, canvases)
             egui::TopBottomPanel::top("topbar").show(egui_ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
                     ui.label(format!("[untitled - {}]", plow_header));
+                    ui.label(format!("fps: {}", get_fps()));
+                });
+            });
+            // draw secondary topbar (navigation, tool settings)
+            egui::TopBottomPanel::top("topbar2").show(egui_ctx, |ui| {
+                ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
                     ui.menu_button("file", |ui| {
                         if ui.button("new").clicked() {
                             ui.close_menu();
@@ -113,7 +120,8 @@ async fn main() {
                             file_picker.open_dialog();
                         }
                     });
-                    ui.label(format!("fps: {}", get_fps()));
+                    ui.separator();
+                    active_tool.draw_buttons(ui, &mut tools_settings);
                 });
             });
             // draw tools window
@@ -314,7 +322,7 @@ async fn main() {
         }
 
         if !mouse_over_ui {
-            active_tool.draw(ToolContext {
+            active_tool.update(ToolContext {
                 layer: &mut canvas.layers[canvas.current_layer],
                 cursor_x,
                 cursor_y,
@@ -322,6 +330,7 @@ async fn main() {
                 last_cursor_y,
                 primary_color,
                 secondary_color,
+                settings: &mut tools_settings,
             });
         }
 

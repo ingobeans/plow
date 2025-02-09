@@ -1,3 +1,6 @@
+use std::ops::RangeInclusive;
+
+use egui_macroquad::egui::{Slider, Ui};
 use macroquad::prelude::*;
 
 use crate::canvas::*;
@@ -19,6 +22,16 @@ fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
     )
 }
 
+pub struct ToolsSettings {
+    color_tolerance: u8,
+}
+
+impl ToolsSettings {
+    pub fn new() -> Self {
+        ToolsSettings { color_tolerance: 0 }
+    }
+}
+
 pub struct ToolContext<'a> {
     pub layer: &'a mut Layer,
     pub cursor_x: i16,
@@ -27,12 +40,14 @@ pub struct ToolContext<'a> {
     pub last_cursor_y: Option<i16>,
     pub primary_color: [f32; 4],
     pub secondary_color: [f32; 4],
+    pub settings: &'a mut ToolsSettings,
 }
 
 #[allow(unused)]
 pub trait Tool {
     fn name(&self) -> String;
-    fn draw(&self, ctx: ToolContext) {}
+    fn update(&self, ctx: ToolContext) {}
+    fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {}
     fn keybind(&self) -> Option<KeyCode> {
         None
     }
@@ -45,7 +60,7 @@ impl Tool for Brush {
     fn keybind(&self) -> Option<KeyCode> {
         Some(KeyCode::B)
     }
-    fn draw(&self, ctx: ToolContext) {
+    fn update(&self, ctx: ToolContext) {
         // draw pixel if LMB is pressed
 
         let draw_color = if is_mouse_button_down(MouseButton::Left) {
@@ -78,6 +93,13 @@ impl Tool for Brush {
         }
     }
 }
+fn compare_colors(color_a: [u8; 4], color_b: [u8; 4]) -> u16 {
+    let mut diffs = 0;
+    for part in 0..4 {
+        diffs += (color_a[part] as i16 - color_b[part] as i16).abs() as u16
+    }
+    diffs
+}
 
 fn flood_fill(
     width: usize,
@@ -86,6 +108,7 @@ fn flood_fill(
     x: usize,
     y: usize,
     target_color: [f32; 4],
+    tolerance: u16,
 ) {
     // convert target_color to u8
     let target_color: [u8; 4] = [
@@ -124,7 +147,7 @@ fn flood_fill(
                 let y: usize = y.unwrap();
                 let has_been_visited = visited[x][y];
                 if !has_been_visited {
-                    if pixels[x + y * width] == old_color {
+                    if compare_colors(pixels[x + y * width], old_color) <= tolerance {
                         buf.push((x, y));
                         visited[x][y] = true;
                     }
@@ -141,7 +164,14 @@ impl Tool for Bucket {
     fn keybind(&self) -> Option<KeyCode> {
         Some(KeyCode::F)
     }
-    fn draw(&self, ctx: ToolContext) {
+    fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
+        let label = ui.label("tolerance");
+        let widget = Slider::new(&mut settings.color_tolerance, RangeInclusive::new(0, 100));
+        ui.add(widget).labelled_by(label.id).on_hover_text(
+            "color tolerance. 0 means bucket will only fill pixels that are exactly equal",
+        );
+    }
+    fn update(&self, ctx: ToolContext) {
         let draw_color = if is_mouse_button_pressed(MouseButton::Left) {
             Some(ctx.primary_color)
         } else if is_mouse_button_pressed(MouseButton::Right) {
@@ -154,6 +184,13 @@ impl Tool for Bucket {
             let height = ctx.layer.height();
             let pixels: &mut [[u8; 4]] = ctx.layer.image.get_image_data_mut();
 
+            // idek
+            // convert the 0-100 scale tolerance to a 0-1020 scale tolerance (1020=255*4)
+            // but not in a linear function
+            // i hate this but idk how to actually do this sort of color comparison
+            let tolerance = (1.04_f32.powf(ctx.settings.color_tolerance as f32)
+                / (4. / ctx.settings.color_tolerance as f32)) as u16;
+
             flood_fill(
                 width,
                 height,
@@ -161,6 +198,7 @@ impl Tool for Bucket {
                 ctx.cursor_x as usize,
                 ctx.cursor_y as usize,
                 draw_color,
+                tolerance,
             );
             ctx.layer.force_update_region(None);
         }
