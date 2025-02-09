@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use egui_macroquad::egui::{Slider, Ui};
+use egui_macroquad::egui::{DragValue, Slider, Ui};
 use macroquad::prelude::*;
 
 use crate::canvas::*;
@@ -24,6 +24,7 @@ fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
 pub struct ToolsSettings {
     color_tolerance: u8,
     flood_mode_continuous: bool,
+    brush_size: u16,
 }
 
 impl ToolsSettings {
@@ -31,6 +32,7 @@ impl ToolsSettings {
         ToolsSettings {
             color_tolerance: 0,
             flood_mode_continuous: true,
+            brush_size: 1,
         }
     }
 }
@@ -63,6 +65,11 @@ impl Tool for Brush {
     fn keybind(&self) -> Option<KeyCode> {
         Some(KeyCode::B)
     }
+    fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
+        let brush_size_label = ui.label("brush size");
+        let drag_value = DragValue::new(&mut settings.brush_size);
+        ui.add(drag_value).labelled_by(brush_size_label.id);
+    }
     fn update(&self, ctx: ToolContext) {
         // draw pixel if LMB is pressed
 
@@ -83,6 +90,7 @@ impl Tool for Brush {
                         last_cursor_y,
                         ctx.cursor_x,
                         ctx.cursor_y,
+                        ctx.settings.brush_size,
                     );
                     ctx.layer.flush_texture();
                 }

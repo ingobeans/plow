@@ -40,10 +40,42 @@ fn update_texture(texture: &mut Texture2D, image: &Image, region: Option<Rect>) 
         *texture = texture_from(image);
     }
 }
-pub fn draw_line_image(layer: &mut Layer, color: Color, x1: i16, y1: i16, x2: i16, y2: i16) {
+pub fn draw_line_image(
+    layer: &mut Layer,
+    color: Color,
+    x1: i16,
+    y1: i16,
+    x2: i16,
+    y2: i16,
+    brush_size: u16,
+) {
+    let stroke: Vec<(i32, i32)>;
+    if brush_size > 1 {
+        let half_brush_size = brush_size as f32 / 2.;
+        let brush_size = brush_size as i32;
+        let mut new = Vec::new();
+        for x in -brush_size..brush_size + 1 {
+            for y in -brush_size..brush_size + 1 {
+                if (x * x + y * y) as f32 <= half_brush_size * half_brush_size + 1. {
+                    new.push((x, y))
+                }
+            }
+        }
+        stroke = new;
+    } else {
+        stroke = vec![(0, 0)];
+    }
     for (x, y) in Bresenham::new((x1, y1), (x2, y2)) {
-        if x >= 0 && x < layer.width() as i16 && y >= 0 && y < layer.height() as i16 {
-            layer.set_pixel(x as u32, y as u32, color);
+        for (stroke_x, stroke_y) in stroke.clone() {
+            let x = (x as i32 + stroke_x).try_into();
+            let y = (y as i32 + stroke_y).try_into();
+            if x.is_ok() && y.is_ok() {
+                let x = x.unwrap();
+                let y = y.unwrap();
+                if x < layer.width() as u32 && y < layer.height() as u32 {
+                    layer.set_pixel(x, y, color);
+                }
+            }
         }
     }
 }
