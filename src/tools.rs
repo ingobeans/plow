@@ -89,10 +89,10 @@ fn flood_fill(
 ) {
     // convert target_color to u8
     let target_color: [u8; 4] = [
-        (target_color[0] * 255.).round() as u8,
-        (target_color[1] * 255.).round() as u8,
-        (target_color[2] * 255.).round() as u8,
-        (target_color[3] * 255.).round() as u8,
+        (target_color[0] * 255.).floor() as u8,
+        (target_color[1] * 255.).floor() as u8,
+        (target_color[2] * 255.).floor() as u8,
+        (target_color[3] * 255.).floor() as u8,
     ];
 
     // order pixels in to 2d array (indexed by [x][y])
