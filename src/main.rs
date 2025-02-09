@@ -89,6 +89,10 @@ async fn main() {
                 println!("image failed to load");
             }
         }
+        // store state of text inputs to compare if theyve been edited
+        let pre_new_file_width = new_file_width.clone();
+        let pre_new_file_height = new_file_height.clone();
+        let pre_rename_layer_text = rename_layer_text.clone();
 
         // define ui
         let mut mouse_over_ui = false;
@@ -121,10 +125,8 @@ async fn main() {
                         if tool_name == active_tool.name() {
                             button = button.highlight();
                         }
-                        // check if this tool was clicked or if its keybind was pressed
-                        if button.clicked()
-                            || (tool.keybind().is_some() && is_key_pressed(tool.keybind().unwrap()))
-                        {
+                        // make active if clicked
+                        if button.clicked() {
                             active_tool = tool;
                         }
                     }
@@ -252,8 +254,30 @@ async fn main() {
                             });
                     });
             }
-            mouse_over_ui = egui_ctx.is_pointer_over_area();
+
+            mouse_over_ui = egui_ctx.is_pointer_over_area() || egui_ctx.is_using_pointer();
         });
+        let typing_in_text_box = {
+            pre_new_file_height != new_file_height
+                || pre_new_file_width != new_file_width
+                || pre_rename_layer_text != rename_layer_text
+        };
+
+        // check for pressed keybinds (when the user isnt typing in a text box)
+        if !typing_in_text_box {
+            // check if a tool's keybind has been pressed and if so make it active
+            for tool in &tools {
+                if tool.keybind().is_some() && is_key_pressed(tool.keybind().unwrap()) {
+                    active_tool = tool;
+                    break;
+                }
+            }
+            // and also check if x pressed, if so swap primary and secondary colors
+            if is_key_pressed(KeyCode::X) {
+                (primary_color, secondary_color) = (secondary_color, primary_color)
+            }
+        }
+
         let scroll = mouse_wheel();
         let mouse = mouse_position();
 
@@ -301,10 +325,6 @@ async fn main() {
             });
         }
 
-        // x should swap primary and secondary colors
-        if is_key_pressed(KeyCode::X) {
-            (primary_color, secondary_color) = (secondary_color, primary_color)
-        }
         // draw grid background behind canvas
         gl_use_material(&grid_material);
         draw_rectangle(
