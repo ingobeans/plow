@@ -21,14 +21,17 @@ fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
         (rgb[3] * 255.).floor() as u8,
     )
 }
-
 pub struct ToolsSettings {
     color_tolerance: u8,
+    flood_mode_continuous: bool,
 }
 
 impl ToolsSettings {
     pub fn new() -> Self {
-        ToolsSettings { color_tolerance: 0 }
+        ToolsSettings {
+            color_tolerance: 0,
+            flood_mode_continuous: true,
+        }
     }
 }
 
@@ -96,7 +99,7 @@ impl Tool for Brush {
 fn compare_colors(color_a: [u8; 4], color_b: [u8; 4]) -> u16 {
     let mut diffs = 0;
     for part in 0..4 {
-        diffs += (color_a[part] as i16 - color_b[part] as i16).abs() as u16
+        diffs += (color_a[part] as i16 - color_b[part] as i16).unsigned_abs()
     }
     diffs
 }
@@ -132,11 +135,10 @@ fn flood_fill(
     let mut visited: Vec<Vec<bool>> = vec![row.clone(); width];
     let mut buf: Vec<(usize, usize)> = vec![(x, y)];
     visited[x][y] = true;
-    while !buf.is_empty() {
-        let item = buf.pop().unwrap();
+    while let Some(item) = buf.pop() {
         let x = item.0;
         let y = item.1;
-        let old_color = pixels[x + y * width].clone();
+        let old_color = pixels[x + y * width];
         pixels[x + y * width] = target_color;
         for dir in dirs {
             let x = (x as isize + dir[0]).try_into();
@@ -146,13 +148,38 @@ fn flood_fill(
                 let x: usize = x.unwrap();
                 let y: usize = y.unwrap();
                 let has_been_visited = visited[x][y];
-                if !has_been_visited {
-                    if compare_colors(pixels[x + y * width], old_color) <= tolerance {
-                        buf.push((x, y));
-                        visited[x][y] = true;
-                    }
+                if !has_been_visited
+                    && compare_colors(pixels[x + y * width], old_color) <= tolerance
+                {
+                    buf.push((x, y));
+                    visited[x][y] = true;
                 }
             }
+        }
+    }
+}
+
+fn global_fill(
+    width: usize,
+    pixels: &mut [[u8; 4]],
+    x: usize,
+    y: usize,
+    target_color: [f32; 4],
+    tolerance: u16,
+) {
+    // start color
+    let start_color = pixels[x + y * width];
+
+    // convert target_color to u8
+    let target_color: [u8; 4] = [
+        (target_color[0] * 255.).floor() as u8,
+        (target_color[1] * 255.).floor() as u8,
+        (target_color[2] * 255.).floor() as u8,
+        (target_color[3] * 255.).floor() as u8,
+    ];
+    for pixel in pixels {
+        if compare_colors(*pixel, start_color) <= tolerance {
+            *pixel = target_color
         }
     }
 }
@@ -165,11 +192,14 @@ impl Tool for Bucket {
         Some(KeyCode::F)
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
-        let label = ui.label("tolerance");
-        let widget = Slider::new(&mut settings.color_tolerance, RangeInclusive::new(0, 100));
-        ui.add(widget).labelled_by(label.id).on_hover_text(
-            "color tolerance. 0 means bucket will only fill pixels that are exactly equal",
-        );
+        ui.checkbox(&mut settings.flood_mode_continuous, "continuous");
+        let tolerance_label = ui.label("tolerance");
+        let slider = Slider::new(&mut settings.color_tolerance, RangeInclusive::new(0, 100));
+        ui.add(slider)
+            .labelled_by(tolerance_label.id)
+            .on_hover_text(
+                "color tolerance. 0 means bucket will only fill pixels that are exactly equal",
+            );
     }
     fn update(&self, ctx: ToolContext) {
         let draw_color = if is_mouse_button_pressed(MouseButton::Left) {
@@ -191,15 +221,26 @@ impl Tool for Bucket {
             let tolerance = (1.04_f32.powf(ctx.settings.color_tolerance as f32)
                 / (4. / ctx.settings.color_tolerance as f32)) as u16;
 
-            flood_fill(
-                width,
-                height,
-                pixels,
-                ctx.cursor_x as usize,
-                ctx.cursor_y as usize,
-                draw_color,
-                tolerance,
-            );
+            if ctx.settings.flood_mode_continuous {
+                flood_fill(
+                    width,
+                    height,
+                    pixels,
+                    ctx.cursor_x as usize,
+                    ctx.cursor_y as usize,
+                    draw_color,
+                    tolerance,
+                )
+            } else {
+                global_fill(
+                    width,
+                    pixels,
+                    ctx.cursor_x as usize,
+                    ctx.cursor_y as usize,
+                    draw_color,
+                    tolerance,
+                )
+            }
             ctx.layer.force_update_region(None);
         }
     }
