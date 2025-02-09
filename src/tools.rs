@@ -82,7 +82,7 @@ impl Tool for Brush {
 fn flood_fill(
     width: usize,
     height: usize,
-    unordered_pixels: &mut [[u8; 4]],
+    pixels: &mut [[u8; 4]],
     x: usize,
     y: usize,
     target_color: [f32; 4],
@@ -95,16 +95,14 @@ fn flood_fill(
         (target_color[3] * 255.).floor() as u8,
     ];
 
-    // order pixels in to 2d array (indexed by [x][y])
-    let mut pixels: Vec<Vec<&mut [u8; 4]>> = Vec::new();
-    for (index, pixel) in unordered_pixels.into_iter().enumerate() {
-        let x = index % width;
-        if x >= pixels.len() {
-            pixels.push(Vec::new());
-        }
-        pixels[x].push(pixel);
+    // if all pixels are same color, replace them all
+    // makes function much faster when filling a whole background
+    if pixels.windows(2).all(|win| win[0] == win[1]) {
+        pixels.fill(target_color);
+        return;
     }
 
+    // directions to check for pixels (up, down, right, left)
     let dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
 
     let row = vec![false; height];
@@ -115,8 +113,8 @@ fn flood_fill(
         let item = buf.pop().unwrap();
         let x = item.0;
         let y = item.1;
-        let old_color = pixels[x][y].clone();
-        *pixels[x][y] = target_color;
+        let old_color = pixels[x + y * width].clone();
+        pixels[x + y * width] = target_color;
         for dir in dirs {
             let x = (x as isize + dir[0]).try_into();
             let y = (y as isize + dir[1]).try_into();
@@ -126,7 +124,7 @@ fn flood_fill(
                 let y: usize = y.unwrap();
                 let has_been_visited = visited[x][y];
                 if !has_been_visited {
-                    if *pixels[x][y] == old_color {
+                    if pixels[x + y * width] == old_color {
                         buf.push((x, y));
                         visited[x][y] = true;
                     }
