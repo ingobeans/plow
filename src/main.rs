@@ -127,7 +127,7 @@ async fn main() {
             // draw tools window
             egui::Window::new("tools").show(egui_ctx, |ui| {
                 egui::Grid::new("tools grid").num_columns(2).show(ui, |ui| {
-                    for tool in &tools {
+                    for (index, tool) in tools.iter().enumerate() {
                         let tool_name = tool.name();
                         let mut button = ui.button(&tool_name);
                         if tool_name == active_tool.name() {
@@ -136,6 +136,11 @@ async fn main() {
                         // make active if clicked
                         if button.clicked() {
                             active_tool = tool;
+                        }
+
+                        // make every other tool break new line
+                        if index % 2 != 0 {
+                            ui.end_row();
                         }
                     }
                 });

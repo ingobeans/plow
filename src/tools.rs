@@ -9,6 +9,9 @@ pub fn get_tools() -> Vec<Box<dyn Tool>> {
     vec![
         // all tools
         Box::new(Brush),
+        Box::new(Eraser {
+            internal_brush: Brush,
+        }),
         Box::new(Bucket),
     ]
 }
@@ -104,6 +107,28 @@ impl Tool for Brush {
         }
     }
 }
+pub struct Eraser {
+    // the eraser actually just delegates all its tasks to an internal brush
+    // but with color set to transparent
+    internal_brush: Brush,
+}
+impl Tool for Eraser {
+    fn name(&self) -> String {
+        String::from("eraser")
+    }
+    fn keybind(&self) -> Option<KeyCode> {
+        Some(KeyCode::E)
+    }
+    fn update(&self, mut ctx: ToolContext) {
+        ctx.primary_color = [0., 0., 0., 0.];
+        ctx.secondary_color = [0., 0., 0., 0.];
+        self.internal_brush.update(ctx);
+    }
+    fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
+        self.internal_brush.draw_buttons(ui, settings);
+    }
+}
+
 fn compare_colors(color_a: [u8; 4], color_b: [u8; 4]) -> u16 {
     let mut diffs = 0;
     for part in 0..4 {
