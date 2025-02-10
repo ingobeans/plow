@@ -210,7 +210,7 @@ fn global_fill(
     for (index, pixel) in pixels.into_iter().enumerate() {
         if compare_colors(*pixel, start_color) <= tolerance {
             *pixel = target_color;
-            bounds_tracker.track((index % width) as u32, (index / y) as u32);
+            bounds_tracker.track((index % width) as u32, (index / width) as u32);
         }
     }
     bounds_tracker
@@ -273,7 +273,9 @@ impl Tool for Bucket {
                     tolerance,
                 )
             };
-            ctx.layer.force_update_region(bounds.flush());
+            let flush = bounds.flush();
+            println!("{:?}", flush);
+            ctx.layer.force_update_region(flush);
         }
     }
 }
