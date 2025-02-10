@@ -221,14 +221,15 @@ impl Canvas {
 
         let image = gen_empty_image(self.width, self.height);
 
-        self.current_layer = self.current_layer.saturating_sub(1);
         self.layers
             .insert(self.current_layer, Layer::new(image, name));
     }
     pub fn delete_layer(&mut self) {
         if self.layers.len() > 1 {
             self.layers.remove(self.current_layer);
-            self.current_layer = self.current_layer.saturating_sub(1);
+            if self.current_layer == self.layers.len() {
+                self.current_layer = self.current_layer.saturating_sub(1);
+            }
         }
     }
 }
