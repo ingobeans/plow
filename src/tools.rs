@@ -273,9 +273,7 @@ impl Tool for Bucket {
                     tolerance,
                 )
             };
-            let flush = bounds.flush();
-            println!("{:?}", flush);
-            ctx.layer.force_update_region(flush);
+            ctx.layer.force_update_region(bounds.flush());
         }
     }
 }
