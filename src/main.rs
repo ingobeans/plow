@@ -1,5 +1,5 @@
 use canvas::*;
-use egui_macroquad::egui::{self, Layout};
+use egui_macroquad::egui::{self, Layout, WidgetText};
 use macroquad::prelude::*;
 mod consts;
 use consts::*;
@@ -44,6 +44,13 @@ fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32,
     (camera_grid_size, camera_x, camera_y)
 }
 
+fn new_general_window<'a>(title: impl Into<WidgetText>, open: &'a mut bool) -> egui::Window<'a> {
+    egui::Window::new(title)
+        .collapsible(false)
+        .resizable(false)
+        .open(open)
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
@@ -65,6 +72,11 @@ async fn main() {
     let mut primary_color = DEFAULT_PRIMARY_COLOR;
     let mut secondary_color = DEFAULT_SECONDARY_COLOR;
 
+    let mut last_cursor_x: Option<i16> = None;
+    let mut last_cursor_y: Option<i16> = None;
+
+    // window states
+    // ugly code, ui window problem x1
     let mut new_file_window_open = false;
     let mut new_file_width = String::new();
     let mut new_file_height = String::new();
@@ -72,8 +84,9 @@ async fn main() {
     let mut rename_layer_window_open = false;
     let mut rename_layer_text = String::new();
 
-    let mut last_cursor_x: Option<i16> = None;
-    let mut last_cursor_y: Option<i16> = None;
+    let mut colors_window_open = true;
+    let mut tools_window_open = true;
+    let mut layers_window_open = true;
 
     loop {
         clear_background(BG_COLOR);
@@ -120,93 +133,107 @@ async fn main() {
                             file_picker.open_dialog();
                         }
                     });
+                    ui.menu_button("view", |ui| {
+                        // ugly code, ui window problem x2
+                        ui.checkbox(&mut tools_window_open, "tools");
+                        ui.checkbox(&mut colors_window_open, "colors");
+                        ui.checkbox(&mut layers_window_open, "layers");
+                    });
                     ui.separator();
                     active_tool.draw_buttons(ui, &mut tools_settings);
                 });
             });
-            // draw tools window
-            egui::Window::new("tools").show(egui_ctx, |ui| {
-                egui::Grid::new("tools grid").num_columns(2).show(ui, |ui| {
-                    for (index, tool) in tools.iter().enumerate() {
-                        let tool_name = tool.name();
-                        let mut button = ui.button(&tool_name);
-                        if tool_name == active_tool.name() {
-                            button = button.highlight();
-                        }
-                        // make active if clicked
-                        if button.clicked() {
-                            active_tool = tool;
-                        }
+            // ugly code for all windows, ui window problem x3
+            if tools_window_open {
+                // tools window
+                new_general_window("tools", &mut tools_window_open).show(egui_ctx, |ui| {
+                    egui::Grid::new("tools grid").num_columns(2).show(ui, |ui| {
+                        for (index, tool) in tools.iter().enumerate() {
+                            let tool_name = tool.name();
+                            let mut button = ui.button(&tool_name);
+                            if tool_name == active_tool.name() {
+                                button = button.highlight();
+                            }
+                            // make active if clicked
+                            if button.clicked() {
+                                active_tool = tool;
+                            }
 
-                        // make every other tool break new line
-                        if index % 2 != 0 {
-                            ui.end_row();
+                            // make every other tool break new line
+                            if index % 2 != 0 {
+                                ui.end_row();
+                            }
                         }
-                    }
+                    });
                 });
-            });
-            // color picker
-            egui::Window::new("colors").show(egui_ctx, |ui| {
-                ui.color_edit_button_rgba_unmultiplied(&mut primary_color);
-                ui.color_edit_button_rgba_unmultiplied(&mut secondary_color);
-            });
+            }
+            if colors_window_open {
+                // color picker
+                new_general_window("colors", &mut colors_window_open).show(egui_ctx, |ui| {
+                    ui.color_edit_button_rgba_unmultiplied(&mut primary_color);
+                    ui.color_edit_button_rgba_unmultiplied(&mut secondary_color);
+                });
+            }
 
-            // draw layers window
-            egui::Window::new("layers")
-                .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(0., 0.))
-                .show(egui_ctx, |ui| {
-                    let mut dragging_layer = None;
-                    let response = quad_egui_dnd::dnd(ui, "layers").show(
-                        canvas.layers.iter_mut().enumerate(),
-                        |ui, (index, item), handle, state| {
-                            ui.horizontal(|ui| {
-                                handle.ui(ui, |ui| {
-                                    ui.checkbox(&mut item.visible, "");
-                                    let label = ui
-                                        .button(&item.name)
-                                        .on_hover_cursor(egui::CursorIcon::PointingHand);
-                                    if label.clicked() {
-                                        canvas.current_layer = index;
-                                    }
-                                    if state.dragged {
-                                        dragging_layer = Some(item.name.clone());
-                                    }
-                                    if label.double_clicked() {
-                                        rename_layer_text = item.name.clone();
-                                        rename_layer_window_open = true;
-                                    }
-                                    if index == canvas.current_layer {
-                                        label.highlight();
-                                    }
+            if layers_window_open {
+                // layers window
+                new_general_window("layers", &mut layers_window_open)
+                    .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(0., 0.))
+                    .show(egui_ctx, |ui| {
+                        let mut dragging_layer = None;
+                        let response = quad_egui_dnd::dnd(ui, "layers").show(
+                            canvas.layers.iter_mut().enumerate(),
+                            |ui, (index, item), handle, state| {
+                                ui.horizontal(|ui| {
+                                    handle.ui(ui, |ui| {
+                                        ui.checkbox(&mut item.visible, "");
+                                        let label = ui
+                                            .button(&item.name)
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                                        if label.clicked() {
+                                            canvas.current_layer = index;
+                                        }
+                                        if state.dragged {
+                                            dragging_layer = Some(item.name.clone());
+                                        }
+                                        if label.double_clicked() {
+                                            rename_layer_text = item.name.clone();
+                                            rename_layer_window_open = true;
+                                        }
+                                        if index == canvas.current_layer {
+                                            label.highlight();
+                                        }
+                                    });
                                 });
-                            });
-                        },
-                    );
-                    if response.is_drag_finished() {
-                        response.update_vec(&mut canvas.layers);
+                            },
+                        );
+                        if response.is_drag_finished() {
+                            response.update_vec(&mut canvas.layers);
 
-                        // update the canvas.current_layer to the new position of the dragged item
-                        if let Some(dragging_layer) = dragging_layer {
-                            for (index, layer) in canvas.layers.iter().enumerate() {
-                                if layer.name == dragging_layer {
-                                    canvas.current_layer = index;
-                                    break;
+                            // update the canvas.current_layer to the new position of the dragged item
+                            if let Some(dragging_layer) = dragging_layer {
+                                for (index, layer) in canvas.layers.iter().enumerate() {
+                                    if layer.name == dragging_layer {
+                                        canvas.current_layer = index;
+                                        break;
+                                    }
                                 }
                             }
                         }
-                    }
-                    ui.separator();
-                    ui.end_row();
-                    if ui.button("new layer").clicked() {
-                        canvas.new_layer();
-                    }
-                    if ui.button("delete layer").clicked() {
-                        canvas.delete_layer();
-                    }
-                });
+                        ui.separator();
+                        ui.end_row();
+                        if ui.button("new layer").clicked() {
+                            canvas.new_layer();
+                        }
+                        if ui.button("delete layer").clicked() {
+                            canvas.delete_layer();
+                        }
+                    });
+            }
             // draw rename layer window
             if rename_layer_window_open {
                 egui::Window::new("rename layer")
+                    .collapsible(false)
                     .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
                     .show(egui_ctx, |ui| {
                         egui::Grid::new("new file input")
@@ -236,6 +263,7 @@ async fn main() {
             // draw new file window
             if new_file_window_open {
                 egui::Window::new("new file")
+                    .collapsible(false)
                     .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
                     .show(egui_ctx, |ui| {
                         ui.label("enter canvas size");
