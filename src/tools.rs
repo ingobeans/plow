@@ -120,7 +120,7 @@ fn flood_fill(
     y: usize,
     target_color: [f32; 4],
     tolerance: u16,
-) {
+) -> BoundsTracker {
     // convert target_color to u8
     let target_color: [u8; 4] = [
         (target_color[0] * 255.).floor() as u8,
@@ -129,16 +129,10 @@ fn flood_fill(
         (target_color[3] * 255.).floor() as u8,
     ];
 
-    // if all pixels are same color, replace them all
-    // makes function much faster when filling a whole background
-    if pixels.windows(2).all(|win| win[0] == win[1]) {
-        pixels.fill(target_color);
-        return;
-    }
-
     // directions to check for pixels (up, down, right, left)
     let dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
 
+    let mut bounds_tracker = BoundsTracker::new();
     let row = vec![false; height];
     let mut visited: Vec<Vec<bool>> = vec![row.clone(); width];
     let mut buf: Vec<(usize, usize)> = vec![(x, y)];
@@ -148,6 +142,7 @@ fn flood_fill(
         let y = item.1;
         let old_color = pixels[x + y * width];
         pixels[x + y * width] = target_color;
+        bounds_tracker.track(x as u32, y as u32);
         for dir in dirs {
             let x = (x as isize + dir[0]).try_into();
             let y = (y as isize + dir[1]).try_into();
@@ -165,6 +160,7 @@ fn flood_fill(
             }
         }
     }
+    bounds_tracker
 }
 
 fn global_fill(
@@ -174,7 +170,7 @@ fn global_fill(
     y: usize,
     target_color: [f32; 4],
     tolerance: u16,
-) {
+) -> BoundsTracker {
     // start color
     let start_color = pixels[x + y * width];
 
@@ -185,11 +181,14 @@ fn global_fill(
         (target_color[2] * 255.).floor() as u8,
         (target_color[3] * 255.).floor() as u8,
     ];
-    for pixel in pixels {
+    let mut bounds_tracker = BoundsTracker::new();
+    for (index, pixel) in pixels.into_iter().enumerate() {
         if compare_colors(*pixel, start_color) <= tolerance {
-            *pixel = target_color
+            *pixel = target_color;
+            bounds_tracker.track((index % width) as u32, (index / y) as u32);
         }
     }
+    bounds_tracker
 }
 pub struct Bucket;
 impl Tool for Bucket {
@@ -229,7 +228,7 @@ impl Tool for Bucket {
             let tolerance = (1.04_f32.powf(ctx.settings.color_tolerance as f32)
                 / (4. / ctx.settings.color_tolerance as f32)) as u16;
 
-            if ctx.settings.flood_mode_continuous {
+            let mut bounds = if ctx.settings.flood_mode_continuous {
                 flood_fill(
                     width,
                     height,
@@ -248,8 +247,8 @@ impl Tool for Bucket {
                     draw_color,
                     tolerance,
                 )
-            }
-            ctx.layer.force_update_region(None);
+            };
+            ctx.layer.force_update_region(bounds.flush());
         }
     }
 }
