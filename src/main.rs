@@ -410,8 +410,8 @@ async fn main() {
                 cursor_y,
                 last_cursor_x,
                 last_cursor_y,
-                primary_color,
-                secondary_color,
+                primary_color: &mut primary_color,
+                secondary_color: &mut secondary_color,
                 settings: &mut tools_settings,
             });
         }

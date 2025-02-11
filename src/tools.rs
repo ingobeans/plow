@@ -13,6 +13,7 @@ pub fn get_tools() -> Vec<Box<dyn Tool>> {
             internal_brush: Brush,
         }),
         Box::new(Bucket),
+        Box::new(ColorPicker),
     ]
 }
 
@@ -46,8 +47,8 @@ pub struct ToolContext<'a> {
     pub cursor_y: i16,
     pub last_cursor_x: Option<i16>,
     pub last_cursor_y: Option<i16>,
-    pub primary_color: [f32; 4],
-    pub secondary_color: [f32; 4],
+    pub primary_color: &'a mut [f32; 4],
+    pub secondary_color: &'a mut [f32; 4],
     pub settings: &'a mut ToolsSettings,
 }
 
@@ -119,13 +120,50 @@ impl Tool for Eraser {
     fn keybind(&self) -> Option<KeyCode> {
         Some(KeyCode::E)
     }
-    fn update(&self, mut ctx: ToolContext) {
-        ctx.primary_color = [0., 0., 0., 0.];
-        ctx.secondary_color = [0., 0., 0., 0.];
-        self.internal_brush.update(ctx);
+    fn update(&self, ctx: ToolContext) {
+        let mut color = [0., 0., 0., 0.];
+        // hmm will have to make this less tedious
+        let new_ctx = ToolContext {
+            layer: ctx.layer,
+            cursor_x: ctx.cursor_x,
+            cursor_y: ctx.cursor_y,
+            last_cursor_x: ctx.last_cursor_x,
+            last_cursor_y: ctx.last_cursor_y,
+            primary_color: &mut color.clone(),
+            secondary_color: &mut color,
+            settings: ctx.settings,
+        };
+        self.internal_brush.update(new_ctx);
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
         self.internal_brush.draw_buttons(ui, settings);
+    }
+}
+
+pub struct ColorPicker;
+impl Tool for ColorPicker {
+    fn name(&self) -> String {
+        String::from("color picker")
+    }
+    fn keybind(&self) -> Option<KeyCode> {
+        Some(KeyCode::K)
+    }
+    fn update(&self, ctx: ToolContext) {
+        let color_slot = if is_mouse_button_pressed(MouseButton::Left) {
+            Some(ctx.primary_color)
+        } else if is_mouse_button_pressed(MouseButton::Right) {
+            Some(ctx.secondary_color)
+        } else {
+            None
+        };
+        if let Some(color_slot) = color_slot {
+            let color = ctx
+                .layer
+                .image
+                .get_pixel(ctx.cursor_x as u32, ctx.cursor_y as u32);
+            let color = [color.r, color.g, color.b, color.a];
+            *color_slot = color;
+        }
     }
 }
 
@@ -260,7 +298,7 @@ impl Tool for Bucket {
                     pixels,
                     ctx.cursor_x as usize,
                     ctx.cursor_y as usize,
-                    draw_color,
+                    *draw_color,
                     tolerance,
                 )
             } else {
@@ -269,7 +307,7 @@ impl Tool for Bucket {
                     pixels,
                     ctx.cursor_x as usize,
                     ctx.cursor_y as usize,
-                    draw_color,
+                    *draw_color,
                     tolerance,
                 )
             };
