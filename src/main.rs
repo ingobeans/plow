@@ -44,7 +44,7 @@ fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32,
     (camera_grid_size, camera_x, camera_y)
 }
 
-fn new_general_window<'a>(title: impl Into<WidgetText>, open: &'a mut bool) -> egui::Window<'a> {
+fn new_general_window(title: impl Into<WidgetText>, open: &mut bool) -> egui::Window<'_> {
     egui::Window::new(title)
         .collapsible(false)
         .resizable(false)

@@ -78,9 +78,9 @@ impl Tool for Brush {
         // draw pixel if LMB is pressed
 
         let draw_color = if is_mouse_button_down(MouseButton::Left) {
-            Some(rgb_array_to_color(&ctx.primary_color))
+            Some(rgb_array_to_color(ctx.primary_color))
         } else if is_mouse_button_down(MouseButton::Right) {
-            Some(rgb_array_to_color(&ctx.secondary_color))
+            Some(rgb_array_to_color(ctx.secondary_color))
         } else {
             None
         };
@@ -245,7 +245,7 @@ fn global_fill(
         (target_color[3] * 255.).floor() as u8,
     ];
     let mut bounds_tracker = BoundsTracker::new();
-    for (index, pixel) in pixels.into_iter().enumerate() {
+    for (index, pixel) in pixels.iter_mut().enumerate() {
         if compare_colors(*pixel, start_color) <= tolerance {
             *pixel = target_color;
             bounds_tracker.track((index % width) as u32, (index / width) as u32);

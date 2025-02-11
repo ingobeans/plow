@@ -49,8 +49,7 @@ pub fn draw_line_image(
     y2: i16,
     brush_size: u16,
 ) {
-    let stroke: Vec<(i32, i32)>;
-    if brush_size > 1 {
+    let stroke: Vec<(i32, i32)> = if brush_size > 1 {
         let half_brush_size = brush_size as f32 / 2.;
         let brush_size = brush_size as i32;
         let mut new = Vec::new();
@@ -61,10 +60,10 @@ pub fn draw_line_image(
                 }
             }
         }
-        stroke = new;
+        new
     } else {
-        stroke = vec![(0, 0)];
-    }
+        vec![(0, 0)]
+    };
     for (x, y) in Bresenham::new((x1, y1), (x2, y2)) {
         for (stroke_x, stroke_y) in stroke.clone() {
             let x = (x as i32 + stroke_x).try_into();
