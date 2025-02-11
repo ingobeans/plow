@@ -447,7 +447,7 @@ async fn main() {
         }
 
         // draw cursor (if in bounds)
-        if cursor_in_canvas {
+        if cursor_in_canvas && !mouse_over_ui {
             draw_cursor_at(
                 (cursor_x as f32 * camera_grid_size - camera_x).floor(),
                 (cursor_y as f32 * camera_grid_size - camera_y).floor(),
