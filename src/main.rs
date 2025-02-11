@@ -223,13 +223,18 @@ async fn main() {
                         ui.separator();
                         ui.end_row();
                         ui.horizontal(|ui| {
-                            if ui.button("new layer").clicked() {
+                            if ui
+                                .button("new layer")
+                                .on_hover_text("ctrl+shift+n")
+                                .clicked()
+                            {
                                 canvas.new_layer();
                             }
                             let delete_layer_button = egui::Button::new("delete layer");
                             // make delete layer button disabled if only 1 layer
                             if ui
                                 .add_enabled(canvas.layers.len() > 1, delete_layer_button)
+                                .on_hover_text("ctrl+shift+delete")
                                 .clicked()
                             {
                                 canvas.delete_layer();
@@ -241,6 +246,7 @@ async fn main() {
                                     canvas.current_layer != canvas.layers.len() - 1,
                                     merge_down_button,
                                 )
+                                .on_hover_text("ctrl+m")
                                 .clicked()
                             {
                                 canvas.merge_layers_down();
@@ -331,9 +337,23 @@ async fn main() {
                     break;
                 }
             }
-            // and also check if x pressed, if so swap primary and secondary colors
+            // x => swap primary and secondary color
             if is_key_pressed(KeyCode::X) {
                 (primary_color, secondary_color) = (secondary_color, primary_color)
+            } else if is_key_down(KeyCode::LeftControl) {
+                // ctrl + m => merge layers down
+                if is_key_pressed(KeyCode::M) {
+                    canvas.merge_layers_down();
+                } else if is_key_down(KeyCode::LeftShift) {
+                    // ctrl+shift+n => new layer
+                    if is_key_pressed(KeyCode::N) {
+                        canvas.new_layer();
+                    }
+                    // ctrl+shift+delete => delete layer
+                    if is_key_pressed(KeyCode::Delete) {
+                        canvas.delete_layer();
+                    }
+                }
             }
         }
 
