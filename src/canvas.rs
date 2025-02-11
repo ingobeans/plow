@@ -224,6 +224,15 @@ impl Canvas {
         self.layers
             .insert(self.current_layer, Layer::new(image, name));
     }
+    pub fn merge_layers_down(&mut self) {
+        if self.current_layer != self.layers.len() - 1 {
+            let old_layer = self.layers.remove(self.current_layer);
+            self.layers[self.current_layer]
+                .image
+                .overlay(&old_layer.image);
+            self.layers[self.current_layer].force_update_region(None);
+        }
+    }
     pub fn delete_layer(&mut self) {
         if self.layers.len() > 1 {
             self.layers.remove(self.current_layer);

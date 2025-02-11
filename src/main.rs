@@ -222,12 +222,30 @@ async fn main() {
                         }
                         ui.separator();
                         ui.end_row();
-                        if ui.button("new layer").clicked() {
-                            canvas.new_layer();
-                        }
-                        if ui.button("delete layer").clicked() {
-                            canvas.delete_layer();
-                        }
+                        ui.horizontal(|ui| {
+                            if ui.button("new layer").clicked() {
+                                canvas.new_layer();
+                            }
+                            let delete_layer_button = egui::Button::new("delete layer");
+                            // make delete layer button disabled if only 1 layer
+                            if ui
+                                .add_enabled(canvas.layers.len() > 1, delete_layer_button)
+                                .clicked()
+                            {
+                                canvas.delete_layer();
+                            }
+                            let merge_down_button = egui::Button::new("merge down");
+                            // make merge down button disabled if at bottom layer
+                            if ui
+                                .add_enabled(
+                                    canvas.current_layer != canvas.layers.len() - 1,
+                                    merge_down_button,
+                                )
+                                .clicked()
+                            {
+                                canvas.merge_layers_down();
+                            }
+                        });
                     });
             }
             // draw rename layer window
