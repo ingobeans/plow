@@ -9,7 +9,7 @@ pub const DEFAULT_PRIMARY_COLOR: [f32; 4] = [0., 0., 0., 1.];
 pub const DEFAULT_SECONDARY_COLOR: [f32; 4] = [1., 1., 1., 1.];
 
 const DEFAULT_VERTEX: &str = r#"#version 100
-precision lowp float;
+precision highp float;
 
 attribute vec3 position;
 attribute vec2 texcoord;
