@@ -24,6 +24,13 @@
     <script src="https://cdn.jsdelivr.net/gh/not-fl3/sapp-jsutils/js/sapp_jsutils.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/ingobeans/quad-files/js/quad-files.js"></script>
     <script>
+      // block browser default behaviour when pressing keybinds
+      document.addEventListener("keydown", (event) => {
+        if (event.ctrlKey) {
+          event.preventDefault();
+        }
+      });
+      // load wasm
       load("..%2Ftarget%2Fwasm32-unknown-unknown%2Fdebug%2Fplow.wasm");
     </script>
   </body>
