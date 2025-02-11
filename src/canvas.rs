@@ -205,7 +205,7 @@ impl Canvas {
         let image = gen_empty_image(width, height);
         Canvas::from_image(image)
     }
-    pub fn new_layer(&mut self) {
+    fn get_new_layer_name(&self) -> String {
         // get a name for the new layer (that isnt already used!!!!!)
         let mut layer_name_index = self.layers.len() + 1;
         let mut name = format!("layer {}", layer_name_index);
@@ -218,6 +218,10 @@ impl Canvas {
             layer_name_index += 1;
             name = format!("layer {}", layer_name_index);
         }
+        name
+    }
+    pub fn new_layer(&mut self) {
+        let name = self.get_new_layer_name();
 
         let image = gen_empty_image(self.width, self.height);
 
@@ -232,6 +236,12 @@ impl Canvas {
                 .overlay(&old_layer.image);
             self.layers[self.current_layer].force_update_region(None);
         }
+    }
+    pub fn duplicate_layer(&mut self) {
+        let name = self.get_new_layer_name();
+        let image = self.layers[self.current_layer].image.clone();
+        let new = Layer::new(image, name);
+        self.layers.insert(self.current_layer, new);
     }
     pub fn delete_layer(&mut self) {
         if self.layers.len() > 1 {

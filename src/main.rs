@@ -239,6 +239,13 @@ async fn main() {
                             {
                                 canvas.delete_layer();
                             }
+                            if ui
+                                .button("duplicate layer")
+                                .on_hover_text("ctrl+shift+d")
+                                .clicked()
+                            {
+                                canvas.duplicate_layer();
+                            }
                             let merge_down_button = egui::Button::new("merge down");
                             // make merge down button disabled if at bottom layer
                             if ui
@@ -350,8 +357,12 @@ async fn main() {
                         canvas.new_layer();
                     }
                     // ctrl+shift+delete => delete layer
-                    if is_key_pressed(KeyCode::Delete) {
+                    else if is_key_pressed(KeyCode::Delete) {
                         canvas.delete_layer();
+                    }
+                    // ctrl+shift+d => duplicate layer
+                    else if is_key_pressed(KeyCode::D) {
+                        canvas.duplicate_layer();
                     }
                 }
             }
