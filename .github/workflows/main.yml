@@ -1,9 +1,19 @@
-name: Your github action
+name: Build wasm and deploy to pages
 
 on:
   push:
-    branches:
-      - '*'
+    branches: ["main"]
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -16,7 +26,7 @@ jobs:
 
       - name: Setup rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with: 
+        with:
           target: wasm32-unknown-unknown
 
       - name: Build
@@ -34,3 +44,22 @@ jobs:
         with:
           source-directory: web/
           target-branch: gh-pages
+
+  deploy:
+    needs: publish
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "web/"
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
