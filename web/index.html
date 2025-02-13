@@ -26,7 +26,12 @@
     <script>
       // block browser default behaviour when pressing keybinds
       document.addEventListener("keydown", (event) => {
-        if (event.ctrlKey) {
+        let fn_key_pressed = event.key.startsWith("F") && event.key.length > 1;
+
+        // try to prevent browser from handling key events where:
+        //  - ctrl is pressed, and a function key isnt
+        //  - alt key is pressed
+        if ((event.ctrlKey && !fn_key_pressed) || event.altKey) {
           event.preventDefault();
         }
       });
