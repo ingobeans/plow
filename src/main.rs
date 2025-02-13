@@ -73,6 +73,8 @@ async fn main() {
     let mut last_cursor_x: Option<i16> = None;
     let mut last_cursor_y: Option<i16> = None;
 
+    let mut tool_before_holding_alt: Option<&Box<dyn Tool>> = None;
+
     // window states
     // ugly code, ui window problem x1
     let mut new_file_window_open = false;
@@ -101,6 +103,19 @@ async fn main() {
                 println!("image failed to load");
             }
         }
+        // if alt was released restore previous tool from color picker'
+        if is_key_released(KeyCode::LeftAlt) {
+            if let Some(tool_before_holding_alt) = tool_before_holding_alt {
+                active_tool = tool_before_holding_alt;
+            }
+            tool_before_holding_alt = None;
+        }
+        // if alt pressed, change tool to color picker
+        if is_key_pressed(KeyCode::LeftAlt) && tool_before_holding_alt.is_none() {
+            tool_before_holding_alt = Some(active_tool);
+            active_tool = &tools[3];
+        }
+
         // store state of text inputs to compare if theyve been edited
         let pre_new_file_width = new_file_width.clone();
         let pre_new_file_height = new_file_height.clone();
