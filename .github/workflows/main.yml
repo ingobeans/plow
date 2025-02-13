@@ -38,6 +38,9 @@ jobs:
       - name: List web/ directory
         run: ls web/
 
+      - name: Disable .gitignore
+        run: ls . && cat .gitignore && rm .gitignore
+
       - name: Publish current workdir (which contains generated content) to GitHub Pages
         uses: rayluo/github-pages-overwriter@v1.3
 
