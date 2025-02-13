@@ -11,7 +11,7 @@ mod tools;
 /// Draw line with triple width, where center is white and edges are black.
 ///
 /// Used to draw the cursor
-fn draw_double_line(x1: f32, y1: f32, x2: f32, y2: f32) {
+fn draw_bold_line(x1: f32, y1: f32, x2: f32, y2: f32) {
     draw_line(x1, y1, x2, y2, 1., WHITE);
 
     let sides = if x1 == x2 {
@@ -74,6 +74,9 @@ async fn main() {
     let mut last_cursor_y: Option<i16> = None;
 
     let mut tool_before_holding_alt: Option<&Box<dyn Tool>> = None;
+
+    // stroke to display for [CursorType::Point]
+    let point_stroke = Stroke::new(1);
 
     // window states
     // ugly code, ui window problem x1
@@ -461,8 +464,10 @@ async fn main() {
 
         // draw cursor (if in bounds)
         if cursor_in_canvas && !mouse_over_ui {
-            let stroke = &tools_settings.stroke;
-
+            let stroke = match active_tool.cursor_type() {
+                CursorType::Stroke => &tools_settings.stroke,
+                CursorType::Point => &point_stroke,
+            };
             for ((x1, y1), (x2, y2)) in &stroke.borders {
                 let x1 = (cursor_x + *x1 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
                     - camera_x;
@@ -472,7 +477,7 @@ async fn main() {
                     - camera_x;
                 let y2 = (cursor_y + *y2 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
                     - camera_y;
-                draw_double_line(x1, y1, x2, y2);
+                draw_bold_line(x1, y1, x2, y2);
             }
         }
 

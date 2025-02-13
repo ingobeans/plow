@@ -26,6 +26,11 @@ fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
     )
 }
 
+pub enum CursorType {
+    Stroke,
+    Point,
+}
+
 pub struct Stroke {
     pub size: u16,
     pub pixels: Vec<Vec<bool>>,
@@ -150,6 +155,9 @@ pub trait Tool {
     fn name(&self) -> String;
     fn update(&self, ctx: ToolContext) {}
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {}
+    fn cursor_type(&self) -> CursorType {
+        CursorType::Point
+    }
     fn keybind(&self) -> Option<KeyCode> {
         None
     }
@@ -161,6 +169,9 @@ impl Tool for Brush {
     }
     fn keybind(&self) -> Option<KeyCode> {
         Some(KeyCode::B)
+    }
+    fn cursor_type(&self) -> CursorType {
+        CursorType::Stroke
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
         let brush_size_label = ui.label("brush size");
@@ -215,6 +226,9 @@ impl Tool for Eraser {
     }
     fn keybind(&self) -> Option<KeyCode> {
         Some(KeyCode::E)
+    }
+    fn cursor_type(&self) -> CursorType {
+        CursorType::Stroke
     }
     fn update(&self, ctx: ToolContext) {
         let mut color = [0., 0., 0., 0.];
