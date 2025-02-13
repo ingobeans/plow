@@ -4,9 +4,8 @@
 
 plow is an image editor made in rust with macroquad and egui. it can run in the browser with wasm or standalone cross platform.
 
-
 ## build
 
 for standalone: `cargo run`
 
-for wasm, with `basic-http-server`, do: `cargo build --target wasm32-unknown-unknown; basic-http-server web/`
+for wasm, with `basic-http-server`, do: `cargo build --target wasm32-unknown-unknown && cp target/wasm32-unknown-unknown/release/plow.wasm web/ && basic-http-server web/`
