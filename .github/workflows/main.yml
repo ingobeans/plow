@@ -4,17 +4,6 @@ on:
   push:
     branches: ["main"]
 
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
   publish:
     permissions:
@@ -39,7 +28,7 @@ jobs:
         run: ls web/
 
       - name: Disable .gitignore
-        run: ls . && cat .gitignore && rm .gitignore
+        run: echo root-contents, && ls . && echo .gitignore-contents, && cat .gitignore && rm .gitignore
 
       - name: Publish current workdir (which contains generated content) to GitHub Pages
         uses: rayluo/github-pages-overwriter@v1.3
@@ -47,22 +36,3 @@ jobs:
         with:
           source-directory: web/
           target-branch: gh-pages
-
-  deploy:
-    needs: publish
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: "web/"
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
