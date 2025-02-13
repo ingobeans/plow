@@ -2,6 +2,8 @@ use line_drawing::Bresenham;
 use macroquad::prelude::*;
 use std::hash::Hash;
 
+use crate::tools::Stroke;
+
 fn gen_empty_image(width: u16, height: u16) -> Image {
     let bytes = vec![0; width as usize * height as usize * 4];
     Image {
@@ -40,6 +42,7 @@ fn update_texture(texture: &mut Texture2D, image: &Image, region: Option<Rect>) 
         *texture = texture_from(image);
     }
 }
+
 pub fn draw_line_image(
     layer: &mut Layer,
     color: Color,
@@ -47,32 +50,22 @@ pub fn draw_line_image(
     y1: i16,
     x2: i16,
     y2: i16,
-    brush_size: u16,
+    stroke: &Stroke,
 ) {
-    let stroke: Vec<(i32, i32)> = if brush_size > 1 {
-        let half_brush_size = brush_size as f32 / 2.;
-        let brush_size = brush_size as i32;
-        let mut new = Vec::new();
-        for x in -brush_size..brush_size + 1 {
-            for y in -brush_size..brush_size + 1 {
-                if (x * x + y * y) as f32 <= half_brush_size * half_brush_size + 1. {
-                    new.push((x, y))
-                }
-            }
-        }
-        new
-    } else {
-        vec![(0, 0)]
-    };
     for (x, y) in Bresenham::new((x1, y1), (x2, y2)) {
-        for (stroke_x, stroke_y) in stroke.clone() {
-            let x = (x as i32 + stroke_x).try_into();
-            let y = (y as i32 + stroke_y).try_into();
-            if x.is_ok() && y.is_ok() {
-                let x = x.unwrap();
-                let y = y.unwrap();
-                if x < layer.width() as u32 && y < layer.height() as u32 {
-                    layer.set_pixel(x, y, color);
+        for (stroke_x, row) in stroke.pixels.iter().enumerate() {
+            for (stroke_y, value) in row.iter().enumerate() {
+                if !value {
+                    continue;
+                }
+                let x = (x + stroke_x as i16 + stroke.pixels_offset).try_into();
+                let y = (y + stroke_y as i16 + stroke.pixels_offset).try_into();
+                if x.is_ok() && y.is_ok() {
+                    let x = x.unwrap();
+                    let y = y.unwrap();
+                    if x < layer.width() as u32 && y < layer.height() as u32 {
+                        layer.set_pixel(x, y, color);
+                    }
                 }
             }
         }

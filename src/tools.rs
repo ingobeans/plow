@@ -3,7 +3,7 @@ use std::ops::RangeInclusive;
 use egui_macroquad::egui::{DragValue, Slider, Ui};
 use macroquad::prelude::*;
 
-use crate::canvas::*;
+use crate::{canvas::*, consts::DIRECTIONS};
 
 pub fn get_tools() -> Vec<Box<dyn Tool>> {
     vec![
@@ -25,10 +25,103 @@ fn rgb_array_to_color(rgb: &[f32; 4]) -> Color {
         (rgb[3] * 255.).floor() as u8,
     )
 }
+
+pub struct Stroke {
+    pub size: u16,
+    pub pixels: Vec<Vec<bool>>,
+    pub pixels_offset: i16,
+    pub borders: Vec<((usize, usize), (usize, usize))>,
+}
+impl Stroke {
+    pub fn new(size: u16) -> Self {
+        let pixels = Self::get_pixels(size);
+        let borders = Self::get_borders(&pixels);
+        Stroke {
+            size,
+            pixels,
+            pixels_offset: 0,
+            borders,
+        }
+    }
+    pub fn update(&mut self) {
+        self.pixels = Self::get_pixels(self.size);
+        self.borders = Self::get_borders(&self.pixels);
+        self.pixels_offset = -(self.size as i16) / 2;
+    }
+    fn get_pixels(size: u16) -> Vec<Vec<bool>> {
+        if size > 1 {
+            let half_brush_size = size as f32 / 2.;
+            let brush_size = size as i32;
+            let mut new = Vec::new();
+            for x in -brush_size / 2..brush_size / 2 + 1 {
+                new.push(Vec::new());
+                for y in -brush_size / 2..brush_size / 2 + 1 {
+                    if (x * x + y * y) as f32 <= half_brush_size * half_brush_size + 1. {
+                        new.last_mut().unwrap().push(true);
+                    } else {
+                        new.last_mut().unwrap().push(false);
+                    }
+                }
+            }
+            new
+        } else {
+            vec![vec![true]]
+        }
+    }
+    fn get_borders(pixels: &[Vec<bool>]) -> Vec<((usize, usize), (usize, usize))> {
+        let mut new = Vec::new();
+        for (x, column) in pixels.iter().enumerate() {
+            for (y, value) in column.iter().enumerate() {
+                if !value {
+                    continue;
+                }
+                let mut neighbour_above = false;
+                let mut neighbour_below = false;
+                let mut neighbour_right = false;
+                let mut neighbour_left = false;
+                let mut neighbour_bools = [
+                    &mut neighbour_above,
+                    &mut neighbour_below,
+                    &mut neighbour_right,
+                    &mut neighbour_left,
+                ];
+                for (dir, bool) in DIRECTIONS.iter().zip(neighbour_bools.iter_mut()) {
+                    let Ok(x) = (x as isize + dir[0]).try_into() else {
+                        continue;
+                    };
+                    let Ok(y) = (y as isize + dir[1]).try_into() else {
+                        continue;
+                    };
+                    if let Some(column) = pixels.get::<usize>(x) {
+                        if let Some(value) = column.get::<usize>(y) {
+                            if *value {
+                                **bool = true;
+                            }
+                        }
+                    }
+                }
+                if !neighbour_above {
+                    new.push(((x, y + 1), (x + 1, y + 1)));
+                }
+                if !neighbour_below {
+                    new.push(((x, y), (x + 1, y)));
+                }
+                if !neighbour_left {
+                    new.push(((x, y), (x, y + 1)));
+                }
+                if !neighbour_right {
+                    new.push(((x + 1, y), (x + 1, y + 1)));
+                }
+            }
+        }
+        new
+    }
+}
+
 pub struct ToolsSettings {
-    color_tolerance: u8,
-    flood_mode_continuous: bool,
-    brush_size: u16,
+    pub color_tolerance: u8,
+    pub flood_mode_continuous: bool,
+    pub stroke: Stroke,
 }
 
 impl ToolsSettings {
@@ -36,7 +129,7 @@ impl ToolsSettings {
         ToolsSettings {
             color_tolerance: 0,
             flood_mode_continuous: true,
-            brush_size: 1,
+            stroke: Stroke::new(1),
         }
     }
 }
@@ -71,8 +164,11 @@ impl Tool for Brush {
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
         let brush_size_label = ui.label("brush size");
-        let drag_value = DragValue::new(&mut settings.brush_size);
-        ui.add(drag_value).labelled_by(brush_size_label.id);
+        let drag_value = DragValue::new(&mut settings.stroke.size).update_while_editing(false);
+        let resp = ui.add(drag_value).labelled_by(brush_size_label.id);
+        if resp.drag_stopped() || resp.lost_focus() {
+            settings.stroke.update();
+        }
     }
     fn update(&self, ctx: ToolContext) {
         // draw pixel if LMB is pressed
@@ -94,7 +190,7 @@ impl Tool for Brush {
                         last_cursor_y,
                         ctx.cursor_x,
                         ctx.cursor_y,
-                        ctx.settings.brush_size,
+                        &ctx.settings.stroke,
                     );
                     ctx.layer.flush_texture();
                 }
@@ -192,9 +288,6 @@ fn flood_fill(
         (target_color[3] * 255.).floor() as u8,
     ];
 
-    // directions to check for pixels (up, down, right, left)
-    let dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-
     let mut bounds_tracker = BoundsTracker::new();
     let row = vec![false; height];
     let mut visited: Vec<Vec<bool>> = vec![row.clone(); width];
@@ -206,7 +299,7 @@ fn flood_fill(
         let old_color = pixels[x + y * width];
         pixels[x + y * width] = target_color;
         bounds_tracker.track(x as u32, y as u32);
-        for dir in dirs {
+        for dir in DIRECTIONS {
             let x = (x as isize + dir[0]).try_into();
             let y = (y as isize + dir[1]).try_into();
             let valid = x.is_ok() && y.is_ok() && x.unwrap() < width && y.unwrap() < height;

@@ -8,6 +8,8 @@ pub const DEFAULT_CANVAS_HEIGHT: u16 = 128;
 pub const DEFAULT_PRIMARY_COLOR: [f32; 4] = [0., 0., 0., 1.];
 pub const DEFAULT_SECONDARY_COLOR: [f32; 4] = [1., 1., 1., 1.];
 
+pub const DIRECTIONS: [[isize; 2]; 4] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
 const DEFAULT_VERTEX: &str = r#"#version 100
 precision highp float;
 

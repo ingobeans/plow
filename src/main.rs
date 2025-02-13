@@ -8,31 +8,29 @@ use tools::*;
 mod canvas;
 mod tools;
 
-fn draw_cursor_at(cursor_x: f32, cursor_y: f32, camera_grid_size: f32) {
-    draw_rectangle_lines(
-        cursor_x - 3.,
-        cursor_y - 3.,
-        camera_grid_size + 6.,
-        camera_grid_size + 6.,
-        2.,
-        BLACK,
-    );
-    draw_rectangle_lines(
-        cursor_x + -2.,
-        cursor_y + -2.,
-        camera_grid_size + 4.,
-        camera_grid_size + 4.,
-        2.,
-        WHITE,
-    );
-    draw_rectangle_lines(
-        cursor_x - 1.,
-        cursor_y - 1.,
-        camera_grid_size + 2.,
-        camera_grid_size + 2.,
-        2.,
-        BLACK,
-    );
+/// Draw line with triple width, where center is white and edges are black.
+///
+/// Used to draw the cursor
+fn draw_double_line(x1: f32, y1: f32, x2: f32, y2: f32) {
+    draw_line(x1, y1, x2, y2, 1., WHITE);
+
+    let sides = if x1 == x2 {
+        // if line is vertical, draw edges to the left and right
+        [(-1., 0.), (1., 0.)]
+    } else {
+        // if line is horizontal, draw edges above and below
+        [(0., -1.), (0., 1.)]
+    };
+    for (x_offset, y_offset) in sides {
+        draw_line(
+            x1 + x_offset,
+            y1 + y_offset,
+            x2 + x_offset,
+            y2 + y_offset,
+            1.,
+            BLACK,
+        );
+    }
 }
 
 fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
@@ -448,11 +446,19 @@ async fn main() {
 
         // draw cursor (if in bounds)
         if cursor_in_canvas && !mouse_over_ui {
-            draw_cursor_at(
-                (cursor_x as f32 * camera_grid_size - camera_x).floor(),
-                (cursor_y as f32 * camera_grid_size - camera_y).floor(),
-                camera_grid_size.floor(),
-            );
+            let stroke = &tools_settings.stroke;
+
+            for ((x1, y1), (x2, y2)) in &stroke.borders {
+                let x1 = (cursor_x + *x1 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
+                    - camera_x;
+                let y1 = (cursor_y + *y1 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
+                    - camera_y;
+                let x2 = (cursor_x + *x2 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
+                    - camera_x;
+                let y2 = (cursor_y + *y2 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
+                    - camera_y;
+                draw_double_line(x1, y1, x2, y2);
+            }
         }
 
         // draw ui
