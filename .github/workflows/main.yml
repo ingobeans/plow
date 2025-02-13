@@ -25,6 +25,9 @@ jobs:
       - name: Copy wasm file to web/
         run: cp target/wasm32-unknown-unknown/release/plow.wasm web/
 
+      - name: List web/ directory
+        run: ls web/
+
       - name: Publish current workdir (which contains generated content) to GitHub Pages
         uses: rayluo/github-pages-overwriter@v1.3
 
