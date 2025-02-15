@@ -303,10 +303,9 @@ fn flood_fill(
     ];
 
     let mut bounds_tracker = BoundsTracker::new();
-    let row = vec![false; height];
-    let mut visited: Vec<Vec<bool>> = vec![row.clone(); width];
+    let mut visited = vec![false; width * height];
     let mut buf: Vec<(usize, usize)> = vec![(x, y)];
-    visited[x][y] = true;
+    visited[x + y * width] = true;
     while let Some(item) = buf.pop() {
         let x = item.0;
         let y = item.1;
@@ -320,12 +319,12 @@ fn flood_fill(
             if valid {
                 let x: usize = x.unwrap();
                 let y: usize = y.unwrap();
-                let has_been_visited = visited[x][y];
+                let has_been_visited = visited[x + y * width];
                 if !has_been_visited
                     && compare_colors(pixels[x + y * width], old_color) <= tolerance
                 {
                     buf.push((x, y));
-                    visited[x][y] = true;
+                    visited[x + y * width] = true;
                 }
             }
         }
