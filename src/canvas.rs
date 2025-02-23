@@ -1,6 +1,7 @@
+use image::{write_buffer_with_format, ExtendedColorType};
 use line_drawing::Bresenham;
 use macroquad::prelude::*;
-use std::hash::Hash;
+use std::{hash::Hash, io::Cursor};
 
 use crate::tools::Stroke;
 
@@ -178,6 +179,20 @@ pub struct Canvas {
     pub layers: Vec<Layer>,
 }
 
+fn export_png(image: Image) {
+    let mut buffered_writer = Cursor::new(Vec::new());
+    write_buffer_with_format(
+        &mut buffered_writer,
+        &image.bytes,
+        image.width as u32,
+        image.height as u32,
+        ExtendedColorType::Rgba8,
+        image::ImageFormat::Png,
+    )
+    .expect("Couldn't convert canvas to PNG buffer.");
+    let _ = quad_file_download::download("untitled.png", &buffered_writer.into_inner());
+}
+
 impl Canvas {
     pub fn from_image(image: Image) -> Result<Self, std::io::Error> {
         let width: u16 = image.width;
@@ -196,6 +211,17 @@ impl Canvas {
     pub fn new(width: u16, height: u16) -> Result<Self, std::io::Error> {
         let image = gen_empty_image(width, height);
         Canvas::from_image(image)
+    }
+    pub fn to_image(&self) -> Image {
+        let mut image = self.layers.last().unwrap().image.clone();
+        for layer in self.layers.iter().rev().skip(1) {
+            image.overlay(&layer.image);
+        }
+        image
+    }
+    pub fn export(&self) {
+        let image = self.to_image();
+        export_png(image);
     }
     fn get_new_layer_name(&self) -> String {
         // get a name for the new layer (that isnt already used!!!!!)

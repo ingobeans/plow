@@ -148,6 +148,9 @@ async fn main() {
                             ui.close_menu();
                             file_picker.open_dialog();
                         }
+                        if ui.button("save").clicked() {
+                            canvas.export();
+                        }
                     });
                     ui.menu_button("view", |ui| {
                         // ugly code, ui window problem x2
