@@ -1,6 +1,6 @@
 [package]
 name = "plow"
-version = "0.2.36"
+version = "0.2.37"
 edition = "2021"
 
 [dependencies]
@@ -9,11 +9,9 @@ macroquad = "0.4.13"
 egui-macroquad = { git = "https://github.com/Gyorgy0/egui-macroquad.git" }
 quad-url = "0.1.1"
 sapp-jsutils = "0.1.7"
-# my cross platform file picker crate
+# my cross platform file dialog crate
 quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 # my modded version of egui-dnd that doesnt use wasm-bindgen
 quad-egui-dnd = { git = "https://github.com/ingobeans/cool_egui_dnd.git" }
-# my cross platform file downloading/saving plugin
-quad-file-download = { git = "https://github.com/ingobeans/quad-file-download.git" }
 line_drawing = "1.0.0"
 image = { version = "0.25.5", default-features = false, features = ["png"] }

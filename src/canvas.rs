@@ -195,8 +195,7 @@ fn export_png(image: Image) {
     .expect("Couldn't convert canvas to PNG buffer.");
 
     // download the buffer data with quad-file-download
-    let _ =
-        quad_file_download::download("untitled.png", &buffered_writer.into_inner(), Some("PNG"));
+    let _ = quad_files::download("untitled.png", &buffered_writer.into_inner(), Some("PNG"));
 }
 
 impl Canvas {
