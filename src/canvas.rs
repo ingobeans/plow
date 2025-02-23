@@ -180,7 +180,10 @@ pub struct Canvas {
 }
 
 fn export_png(image: Image) {
+    // buffer to store png image data in
     let mut buffered_writer = Cursor::new(Vec::new());
+
+    // convert image to png and write to the buffer
     write_buffer_with_format(
         &mut buffered_writer,
         &image.bytes,
@@ -190,7 +193,10 @@ fn export_png(image: Image) {
         image::ImageFormat::Png,
     )
     .expect("Couldn't convert canvas to PNG buffer.");
-    let _ = quad_file_download::download("untitled.png", &buffered_writer.into_inner());
+
+    // download the buffer data with quad-file-download
+    let _ =
+        quad_file_download::download("untitled.png", &buffered_writer.into_inner(), Some("PNG"));
 }
 
 impl Canvas {

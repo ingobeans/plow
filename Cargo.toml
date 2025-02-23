@@ -1,6 +1,6 @@
 [package]
 name = "plow"
-version = "0.2.35"
+version = "0.2.36"
 edition = "2021"
 
 [dependencies]
@@ -14,6 +14,6 @@ quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 # my modded version of egui-dnd that doesnt use wasm-bindgen
 quad-egui-dnd = { git = "https://github.com/ingobeans/cool_egui_dnd.git" }
 # my cross platform file downloading/saving plugin
-quad-file-download = {git = "https://github.com/ingobeans/quad-file-download.git"}
+quad-file-download = { git = "https://github.com/ingobeans/quad-file-download.git" }
 line_drawing = "1.0.0"
 image = { version = "0.25.5", default-features = false, features = ["png"] }
