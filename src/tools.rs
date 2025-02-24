@@ -39,8 +39,8 @@ pub struct Stroke {
 }
 impl Stroke {
     pub fn new(size: u16) -> Self {
-        let pixels = Self::get_pixels(size);
-        let borders = Self::get_borders(&pixels);
+        let pixels = Self::generate_pixels(size);
+        let borders = Self::generate_borders(&pixels);
         Stroke {
             size,
             pixels,
@@ -49,11 +49,11 @@ impl Stroke {
         }
     }
     pub fn update(&mut self) {
-        self.pixels = Self::get_pixels(self.size);
-        self.borders = Self::get_borders(&self.pixels);
+        self.pixels = Self::generate_pixels(self.size);
+        self.borders = Self::generate_borders(&self.pixels);
         self.pixels_offset = -(self.size as i16) / 2;
     }
-    fn get_pixels(size: u16) -> Vec<Vec<bool>> {
+    fn generate_pixels(size: u16) -> Vec<Vec<bool>> {
         if size > 1 {
             let half_brush_size = size as f32 / 2.;
             let brush_size = size as i32;
@@ -61,7 +61,7 @@ impl Stroke {
             for x in -brush_size / 2..brush_size / 2 + 1 {
                 new.push(Vec::new());
                 for y in -brush_size / 2..brush_size / 2 + 1 {
-                    if (x * x + y * y) as f32 <= half_brush_size * half_brush_size + 1. {
+                    if ((x * x + y * y) as f32) < half_brush_size * half_brush_size + 0.5 {
                         new.last_mut().unwrap().push(true);
                     } else {
                         new.last_mut().unwrap().push(false);
@@ -73,7 +73,7 @@ impl Stroke {
             vec![vec![true]]
         }
     }
-    fn get_borders(pixels: &[Vec<bool>]) -> Vec<((usize, usize), (usize, usize))> {
+    fn generate_borders(pixels: &[Vec<bool>]) -> Vec<((usize, usize), (usize, usize))> {
         let mut new = Vec::new();
         for (x, column) in pixels.iter().enumerate() {
             for (y, value) in column.iter().enumerate() {
