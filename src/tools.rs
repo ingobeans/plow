@@ -175,7 +175,9 @@ impl Tool for Brush {
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
         let brush_size_label = ui.label("brush size");
-        let drag_value = DragValue::new(&mut settings.stroke.size).update_while_editing(false);
+        let drag_value = DragValue::new(&mut settings.stroke.size)
+            .update_while_editing(false)
+            .range(RangeInclusive::new(1, i32::MAX));
         let resp = ui.add(drag_value).labelled_by(brush_size_label.id);
         if resp.drag_stopped() || resp.lost_focus() {
             settings.stroke.update();
