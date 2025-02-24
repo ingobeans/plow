@@ -3,7 +3,7 @@ use line_drawing::Bresenham;
 use macroquad::prelude::*;
 use std::{hash::Hash, io::Cursor};
 
-use crate::tools::Stroke;
+use crate::{consts::MIN_ZOOM, tools::Stroke};
 
 fn gen_empty_image(width: u16, height: u16) -> Image {
     let bytes = vec![0; width as usize * height as usize * 4];
@@ -178,9 +178,12 @@ pub struct Canvas {
     pub current_layer: usize,
     pub layers: Vec<Layer>,
     pub name: String,
+    pub camera_grid_size: f32,
+    pub camera_x: f32,
+    pub camera_y: f32,
 }
 
-fn export_png(image: Image) {
+fn export_png(image: Image, name: String) {
     // buffer to store png image data in
     let mut buffered_writer = Cursor::new(Vec::new());
 
@@ -196,7 +199,7 @@ fn export_png(image: Image) {
     .expect("Couldn't convert canvas to PNG buffer.");
 
     // download the buffer data with quad-file-download
-    let _ = quad_files::download("untitled.png", &buffered_writer.into_inner(), Some("PNG"));
+    let _ = quad_files::download(&(name + ".png"), &buffered_writer.into_inner(), Some("PNG"));
 }
 
 impl Canvas {
@@ -207,13 +210,27 @@ impl Canvas {
             return Err(std::io::Error::other("canvas too big! no dimension may be greater than 32768, and the product of the width and height may not be greater than 1073676289"));
         }
         let layers = vec![Layer::new(image, String::from("background"))];
+        let (camera_grid_size, camera_x, camera_y) =
+            Self::generate_camera_bounds_to_fit(width, height);
+
         Ok(Canvas {
             width,
             height,
             current_layer: 0,
             layers,
             name,
+            camera_grid_size,
+            camera_x,
+            camera_y,
         })
+    }
+    fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
+        // make zoom to show entire canvas height
+        let camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
+        // make camera position default be at center of canvas
+        let camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
+        let camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
+        (camera_grid_size, camera_x, camera_y)
     }
     pub fn new(width: u16, height: u16, name: String) -> Result<Self, std::io::Error> {
         let image = gen_empty_image(width, height);
@@ -228,7 +245,7 @@ impl Canvas {
     }
     pub fn export(&self) {
         let image = self.to_image();
-        export_png(image);
+        export_png(image, self.name.clone());
     }
     fn get_new_layer_name(&self) -> String {
         // get a name for the new layer (that isnt already used!!!!!)

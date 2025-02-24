@@ -385,9 +385,9 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.35"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c936bfdafb507ebbf50b8074c54fa31c5be9a1e7e5f467dd659697041407d07c"
+checksum = "11faaf5a5236997af9848be0bef4db95824b1d534ebc64d0f0c6cf3e67bd38dc"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -925,7 +925,7 @@ checksum = "953ec861398dccce10c670dfeaf3ec4911ca479e9c02154b3a215178c5f566f2"
 
 [[package]]
 name = "plow"
-version = "0.2.40"
+version = "0.2.41"
 dependencies = [
  "egui-macroquad",
  "image 0.25.5",
@@ -992,8 +992,8 @@ dependencies = [
 
 [[package]]
 name = "quad-files"
-version = "0.2.0"
-source = "git+https://github.com/ingobeans/quad-files.git#53467a770a68c9f225f3e7465a3e6b2d076a8752"
+version = "0.2.1"
+source = "git+https://github.com/ingobeans/quad-files.git#66d1b8606c48dff4575e3b15edf63b979deebf82"
 dependencies = [
  "rfd",
  "sapp-jsutils",

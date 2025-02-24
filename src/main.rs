@@ -33,15 +33,6 @@ fn draw_bold_line(x1: f32, y1: f32, x2: f32, y2: f32) {
     }
 }
 
-fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
-    // make zoom to show entire canvas height
-    let camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
-    // make camera position default be at center of canvas
-    let camera_x = canvas_width as f32 / 2. * camera_grid_size - screen_width() / 2.;
-    let camera_y = canvas_height as f32 / 2. * camera_grid_size - screen_height() / 2.;
-    (camera_grid_size, camera_x, camera_y)
-}
-
 fn new_general_window(title: impl Into<WidgetText>, open: &mut bool) -> egui::Window<'_> {
     egui::Window::new(title)
         .collapsible(false)
@@ -51,22 +42,20 @@ fn new_general_window(title: impl Into<WidgetText>, open: &mut bool) -> egui::Wi
 
 #[macroquad::main("plow")]
 async fn main() {
-    let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
+    let plow_header = format!("[plow {}]", env!("CARGO_PKG_VERSION"));
     println!("{}", plow_header);
 
-    let mut canvas = Canvas::new(
+    let mut canvases = vec![Canvas::new(
         DEFAULT_CANVAS_WIDTH,
         DEFAULT_CANVAS_HEIGHT,
         String::from(UNTITLED_NAME),
     )
-    .unwrap();
+    .unwrap()];
+    let mut active_canvas = 0;
+
     let tools = get_tools();
     let mut tools_settings = ToolsSettings::new();
     let mut active_tool = tools.first().unwrap();
-
-    // make zoom to show entire canvas height
-    let (mut camera_grid_size, mut camera_x, mut camera_y) =
-        generate_camera_bounds_to_fit(canvas.width, canvas.height);
 
     let grid_material = get_grid_material();
     // set up file picker
@@ -102,11 +91,17 @@ async fn main() {
         // check if image has been loaded from file picker
         if let FileInputResult::Data(data) = file_picker.update() {
             println!("got data!");
-            let image = Image::from_file_with_format(&data, None);
+            let image = Image::from_file_with_format(&data.bytes, None);
+
+            let (name_without_extension, _) = data
+                .name
+                .rsplit_once('.')
+                .unwrap_or((UNTITLED_NAME, UNTITLED_NAME));
+
             if let Ok(image) = image {
-                canvas = Canvas::from_image(image, String::from(UNTITLED_NAME)).unwrap();
-                (camera_grid_size, camera_x, camera_y) =
-                    generate_camera_bounds_to_fit(canvas.width, canvas.height);
+                active_canvas = canvases.len();
+                canvases
+                    .push(Canvas::from_image(image, name_without_extension.to_string()).unwrap());
             } else {
                 println!("image failed to load");
             }
@@ -135,8 +130,21 @@ async fn main() {
             // draw first topbar (info, canvases)
             egui::TopBottomPanel::top("topbar").show(egui_ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
-                    ui.label(format!("[{} - {}]", canvas.name, plow_header));
-                    ui.label(format!("fps: {}", get_fps()));
+                    ui.label(plow_header.clone());
+                    ui.separator();
+                    for (index, canvas) in canvases.iter().enumerate() {
+                        let mut button = ui.button(canvas.name.clone());
+                        if index == active_canvas {
+                            button = button.highlight();
+                        }
+                        if button.clicked() {
+                            // change active canvas
+                            active_canvas = index;
+                            // reset vars
+                            last_cursor_x = None;
+                            last_cursor_y = None;
+                        }
+                    }
                 });
             });
             // draw secondary topbar (navigation, tool settings)
@@ -154,7 +162,7 @@ async fn main() {
                             file_picker.open_dialog();
                         }
                         if ui.button("save").clicked() {
-                            canvas.export();
+                            canvases[active_canvas].export();
                         }
                     });
                     ui.menu_button("view", |ui| {
@@ -205,8 +213,10 @@ async fn main() {
                     .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(0., 0.))
                     .show(egui_ctx, |ui| {
                         let mut dragging_layer = None;
+                        let canvas = &mut canvases[active_canvas];
+                        let items = canvas.layers.iter_mut().enumerate();
                         let response = quad_egui_dnd::dnd(ui, "layers").show(
-                            canvas.layers.iter_mut().enumerate(),
+                            items,
                             |ui, (index, item), handle, state| {
                                 ui.horizontal(|ui| {
                                     handle.ui(ui, |ui| {
@@ -232,13 +242,15 @@ async fn main() {
                             },
                         );
                         if response.is_drag_finished() {
-                            response.update_vec(&mut canvas.layers);
+                            response.update_vec(&mut canvases[active_canvas].layers);
 
-                            // update the canvas.current_layer to the new position of the dragged item
+                            // update the canvases[active_canvas].current_layer to the new position of the dragged item
                             if let Some(dragging_layer) = dragging_layer {
-                                for (index, layer) in canvas.layers.iter().enumerate() {
+                                for (index, layer) in
+                                    canvases[active_canvas].layers.iter().enumerate()
+                                {
                                     if layer.name == dragging_layer {
-                                        canvas.current_layer = index;
+                                        canvases[active_canvas].current_layer = index;
                                         break;
                                     }
                                 }
@@ -252,35 +264,39 @@ async fn main() {
                                 .on_hover_text("ctrl+shift+n")
                                 .clicked()
                             {
-                                canvas.new_layer();
+                                canvases[active_canvas].new_layer();
                             }
                             let delete_layer_button = egui::Button::new("delete layer");
                             // make delete layer button disabled if only 1 layer
                             if ui
-                                .add_enabled(canvas.layers.len() > 1, delete_layer_button)
+                                .add_enabled(
+                                    canvases[active_canvas].layers.len() > 1,
+                                    delete_layer_button,
+                                )
                                 .on_hover_text("ctrl+shift+delete")
                                 .clicked()
                             {
-                                canvas.delete_layer();
+                                canvases[active_canvas].delete_layer();
                             }
                             if ui
                                 .button("duplicate layer")
                                 .on_hover_text("ctrl+shift+d")
                                 .clicked()
                             {
-                                canvas.duplicate_layer();
+                                canvases[active_canvas].duplicate_layer();
                             }
                             let merge_down_button = egui::Button::new("merge down");
                             // make merge down button disabled if at bottom layer
                             if ui
                                 .add_enabled(
-                                    canvas.current_layer != canvas.layers.len() - 1,
+                                    canvases[active_canvas].current_layer
+                                        != canvases[active_canvas].layers.len() - 1,
                                     merge_down_button,
                                 )
                                 .on_hover_text("ctrl+m")
                                 .clicked()
                             {
-                                canvas.merge_layers_down();
+                                canvases[active_canvas].merge_layers_down();
                             }
                         });
                     });
@@ -298,14 +314,15 @@ async fn main() {
                                 ui.text_edit_singleline(&mut rename_layer_text);
                                 ui.end_row();
                                 if ui.button("okay").clicked() {
-                                    let names = canvas
+                                    let names = canvases[active_canvas]
                                         .layers
                                         .iter()
                                         .map(|f| &f.name)
                                         .collect::<Vec<&String>>();
                                     if !names.contains(&&rename_layer_text) {
                                         rename_layer_window_open = false;
-                                        canvas.layers[canvas.current_layer].name =
+                                        let active_layer = canvases[active_canvas].current_layer;
+                                        canvases[active_canvas].layers[active_layer].name =
                                             rename_layer_text.clone();
                                     }
                                 }
@@ -334,17 +351,15 @@ async fn main() {
                                 if ui.button("okay").clicked() {
                                     if let Ok(width) = new_file_width.parse() {
                                         if let Ok(height) = new_file_height.parse() {
-                                            canvas = Canvas::new(
-                                                width,
-                                                height,
-                                                String::from(UNTITLED_NAME),
-                                            )
-                                            .unwrap();
-                                            (camera_grid_size, camera_x, camera_y) =
-                                                generate_camera_bounds_to_fit(
-                                                    canvas.width,
-                                                    canvas.height,
-                                                );
+                                            active_canvas = canvases.len();
+                                            canvases.push(
+                                                Canvas::new(
+                                                    width,
+                                                    height,
+                                                    String::from(UNTITLED_NAME),
+                                                )
+                                                .unwrap(),
+                                            );
                                             new_file_window_open = false;
                                         }
                                     }
@@ -379,19 +394,19 @@ async fn main() {
             } else if is_key_down(KeyCode::LeftControl) {
                 // ctrl + m => merge layers down
                 if is_key_pressed(KeyCode::M) {
-                    canvas.merge_layers_down();
+                    canvases[active_canvas].merge_layers_down();
                 } else if is_key_down(KeyCode::LeftShift) {
                     // ctrl+shift+n => new layer
                     if is_key_pressed(KeyCode::N) {
-                        canvas.new_layer();
+                        canvases[active_canvas].new_layer();
                     }
                     // ctrl+shift+delete => delete layer
                     else if is_key_pressed(KeyCode::Delete) {
-                        canvas.delete_layer();
+                        canvases[active_canvas].delete_layer();
                     }
                     // ctrl+shift+d => duplicate layer
                     else if is_key_pressed(KeyCode::D) {
-                        canvas.duplicate_layer();
+                        canvases[active_canvas].duplicate_layer();
                     }
                 }
             }
@@ -401,18 +416,22 @@ async fn main() {
         let mouse = mouse_position();
 
         // cursor is the mouse position in world/canvas coordinates
-        let cursor_x = ((mouse.0 + camera_x) / camera_grid_size).floor() as i16;
-        let cursor_y = ((mouse.1 + camera_y) / camera_grid_size).floor() as i16;
+        let cursor_x = ((mouse.0 + canvases[active_canvas].camera_x)
+            / canvases[active_canvas].camera_grid_size)
+            .floor() as i16;
+        let cursor_y = ((mouse.1 + canvases[active_canvas].camera_y)
+            / canvases[active_canvas].camera_grid_size)
+            .floor() as i16;
         let cursor_in_canvas = cursor_x >= 0
-            && (cursor_x) < canvas.width as i16
+            && (cursor_x) < canvases[active_canvas].width as i16
             && cursor_y >= 0
-            && (cursor_y) < canvas.height as i16;
+            && (cursor_y) < canvases[active_canvas].height as i16;
 
         // handle input
         if !mouse_over_ui && is_mouse_button_down(MouseButton::Middle) {
             let mouse_delta = mouse_delta_position();
-            camera_x += mouse_delta.x as f32 * screen_width() / 2.;
-            camera_y += mouse_delta.y as f32 * screen_height() / 2.;
+            canvases[active_canvas].camera_x += mouse_delta.x as f32 * screen_width() / 2.;
+            canvases[active_canvas].camera_y += mouse_delta.y as f32 * screen_height() / 2.;
         }
         if !mouse_over_ui && scroll.1 != 0. {
             let amt = if scroll.1 > 0. {
@@ -421,20 +440,26 @@ async fn main() {
                 SCROLL_AMT
             };
             // store old mouse position (in world position)
-            let old_mouse_world_x = (mouse.0 + camera_x) / camera_grid_size;
-            let old_mouse_world_y = (mouse.1 + camera_y) / camera_grid_size;
+            let old_mouse_world_x = (mouse.0 + canvases[active_canvas].camera_x)
+                / canvases[active_canvas].camera_grid_size;
+            let old_mouse_world_y = (mouse.1 + canvases[active_canvas].camera_y)
+                / canvases[active_canvas].camera_grid_size;
             // update grid size
-            camera_grid_size /= amt;
-            camera_grid_size = camera_grid_size.max(MIN_ZOOM);
+            canvases[active_canvas].camera_grid_size /= amt;
+            canvases[active_canvas].camera_grid_size =
+                canvases[active_canvas].camera_grid_size.max(MIN_ZOOM);
             // move camera position to zoom towards cursor
             // by comparing old world mouse position
-            camera_x = old_mouse_world_x * camera_grid_size - mouse.0;
-            camera_y = old_mouse_world_y * camera_grid_size - mouse.1;
+            canvases[active_canvas].camera_x =
+                old_mouse_world_x * canvases[active_canvas].camera_grid_size - mouse.0;
+            canvases[active_canvas].camera_y =
+                old_mouse_world_y * canvases[active_canvas].camera_grid_size - mouse.1;
         }
 
         if !mouse_over_ui {
+            let active_layer = canvases[active_canvas].current_layer;
             active_tool.update(ToolContext {
-                layer: &mut canvas.layers[canvas.current_layer],
+                layer: &mut canvases[active_canvas].layers[active_layer],
                 cursor_x,
                 cursor_y,
                 last_cursor_x,
@@ -448,27 +473,29 @@ async fn main() {
         // draw grid background behind canvas
         gl_use_material(&grid_material);
         draw_rectangle(
-            -camera_x,
-            -camera_y,
-            canvas.width as f32 * camera_grid_size,
-            canvas.height as f32 * camera_grid_size,
+            -canvases[active_canvas].camera_x,
+            -canvases[active_canvas].camera_y,
+            canvases[active_canvas].width as f32 * canvases[active_canvas].camera_grid_size,
+            canvases[active_canvas].height as f32 * canvases[active_canvas].camera_grid_size,
             WHITE,
         );
         gl_use_default_material();
         // draw canvas
         let draw_params = DrawTextureParams {
             dest_size: Some(vec2(
-                (canvas.width as f32 * camera_grid_size).floor(),
-                (canvas.height as f32 * camera_grid_size).floor(),
+                (canvases[active_canvas].width as f32 * canvases[active_canvas].camera_grid_size)
+                    .floor(),
+                (canvases[active_canvas].height as f32 * canvases[active_canvas].camera_grid_size)
+                    .floor(),
             )),
             ..Default::default()
         };
-        for layer in canvas.layers.iter().rev() {
+        for layer in canvases[active_canvas].layers.iter().rev() {
             if layer.visible {
                 draw_texture_ex(
                     &layer.texture,
-                    -camera_x,
-                    -camera_y,
+                    -canvases[active_canvas].camera_x,
+                    -canvases[active_canvas].camera_y,
                     WHITE,
                     draw_params.clone(),
                 );
@@ -482,14 +509,18 @@ async fn main() {
                 CursorType::Point => &point_stroke,
             };
             for ((x1, y1), (x2, y2)) in &stroke.borders {
-                let x1 = (cursor_x + *x1 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
-                    - camera_x;
-                let y1 = (cursor_y + *y1 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
-                    - camera_y;
-                let x2 = (cursor_x + *x2 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
-                    - camera_x;
-                let y2 = (cursor_y + *y2 as i16 + stroke.pixels_offset) as f32 * camera_grid_size
-                    - camera_y;
+                let x1 = (cursor_x + *x1 as i16 + stroke.pixels_offset) as f32
+                    * canvases[active_canvas].camera_grid_size
+                    - canvases[active_canvas].camera_x;
+                let y1 = (cursor_y + *y1 as i16 + stroke.pixels_offset) as f32
+                    * canvases[active_canvas].camera_grid_size
+                    - canvases[active_canvas].camera_y;
+                let x2 = (cursor_x + *x2 as i16 + stroke.pixels_offset) as f32
+                    * canvases[active_canvas].camera_grid_size
+                    - canvases[active_canvas].camera_x;
+                let y2 = (cursor_y + *y2 as i16 + stroke.pixels_offset) as f32
+                    * canvases[active_canvas].camera_grid_size
+                    - canvases[active_canvas].camera_y;
                 draw_bold_line(x1, y1, x2, y2);
             }
         }
