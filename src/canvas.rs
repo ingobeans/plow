@@ -177,6 +177,7 @@ pub struct Canvas {
     pub height: u16,
     pub current_layer: usize,
     pub layers: Vec<Layer>,
+    pub name: String,
 }
 
 fn export_png(image: Image) {
@@ -199,7 +200,7 @@ fn export_png(image: Image) {
 }
 
 impl Canvas {
-    pub fn from_image(image: Image) -> Result<Self, std::io::Error> {
+    pub fn from_image(image: Image, name: String) -> Result<Self, std::io::Error> {
         let width: u16 = image.width;
         let height: u16 = image.height;
         if !validate_canvas_size(width, height) {
@@ -211,11 +212,12 @@ impl Canvas {
             height,
             current_layer: 0,
             layers,
+            name,
         })
     }
-    pub fn new(width: u16, height: u16) -> Result<Self, std::io::Error> {
+    pub fn new(width: u16, height: u16, name: String) -> Result<Self, std::io::Error> {
         let image = gen_empty_image(width, height);
-        Canvas::from_image(image)
+        Canvas::from_image(image, name)
     }
     pub fn to_image(&self) -> Image {
         let mut image = self.layers.last().unwrap().image.clone();

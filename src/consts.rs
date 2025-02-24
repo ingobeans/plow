@@ -9,6 +9,7 @@ pub const DEFAULT_PRIMARY_COLOR: [f32; 4] = [0., 0., 0., 1.];
 pub const DEFAULT_SECONDARY_COLOR: [f32; 4] = [1., 1., 1., 1.];
 
 pub const DIRECTIONS: [[isize; 2]; 4] = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+pub const UNTITLED_NAME: &str = "untitled";
 
 const DEFAULT_VERTEX: &str = r#"#version 100
 precision highp float;

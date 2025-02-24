@@ -54,7 +54,12 @@ async fn main() {
     let plow_header = format!("plow {}", env!("CARGO_PKG_VERSION"));
     println!("{}", plow_header);
 
-    let mut canvas = Canvas::new(DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT).unwrap();
+    let mut canvas = Canvas::new(
+        DEFAULT_CANVAS_WIDTH,
+        DEFAULT_CANVAS_HEIGHT,
+        String::from(UNTITLED_NAME),
+    )
+    .unwrap();
     let tools = get_tools();
     let mut tools_settings = ToolsSettings::new();
     let mut active_tool = tools.first().unwrap();
@@ -99,7 +104,7 @@ async fn main() {
             println!("got data!");
             let image = Image::from_file_with_format(&data, None);
             if let Ok(image) = image {
-                canvas = Canvas::from_image(image).unwrap();
+                canvas = Canvas::from_image(image, String::from(UNTITLED_NAME)).unwrap();
                 (camera_grid_size, camera_x, camera_y) =
                     generate_camera_bounds_to_fit(canvas.width, canvas.height);
             } else {
@@ -130,7 +135,7 @@ async fn main() {
             // draw first topbar (info, canvases)
             egui::TopBottomPanel::top("topbar").show(egui_ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Max), |ui| {
-                    ui.label(format!("[untitled - {}]", plow_header));
+                    ui.label(format!("[{} - {}]", canvas.name, plow_header));
                     ui.label(format!("fps: {}", get_fps()));
                 });
             });
@@ -329,7 +334,12 @@ async fn main() {
                                 if ui.button("okay").clicked() {
                                     if let Ok(width) = new_file_width.parse() {
                                         if let Ok(height) = new_file_height.parse() {
-                                            canvas = Canvas::new(width, height).unwrap();
+                                            canvas = Canvas::new(
+                                                width,
+                                                height,
+                                                String::from(UNTITLED_NAME),
+                                            )
+                                            .unwrap();
                                             (camera_grid_size, camera_x, camera_y) =
                                                 generate_camera_bounds_to_fit(
                                                     canvas.width,
