@@ -24,8 +24,7 @@
     <script src="https://cdn.jsdelivr.net/gh/not-fl3/sapp-jsutils/js/sapp_jsutils.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/ingobeans/quad-files@53467a770a68c9f225f3e7465a3e6b2d076a8752/js/quad-files.js"></script>
     <script>
-      // block browser default behaviour when pressing keybinds
-      document.addEventListener("keydown", (event) => {
+      function blockEvent(event) {
         let fn_key_pressed = event.key.startsWith("F") && event.key.length > 1;
 
         // try to prevent browser from handling key events where:
@@ -34,7 +33,11 @@
         if ((event.ctrlKey && !fn_key_pressed) || event.altKey) {
           event.preventDefault();
         }
-      });
+      }
+      // block browser default behaviour when pressing keybinds
+      document.addEventListener("keydown", blockEvent);
+      document.addEventListener("keyup", blockEvent);
+      document.addEventListener("keypress", blockEvent);
       // load wasm
       load("plow.wasm");
     </script>
