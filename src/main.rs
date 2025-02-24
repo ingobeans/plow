@@ -40,6 +40,18 @@ fn new_general_window(title: impl Into<WidgetText>, open: &mut bool) -> egui::Wi
         .open(open)
 }
 
+fn get_new_canvas_name(canvases: &Vec<Canvas>) -> String {
+    // get a name for the new canvas (that isnt already used!!!!!)
+    let mut canvas_name_index = canvases.len() + 1;
+    let mut name = format!("{} {}", UNTITLED_NAME, canvas_name_index);
+    let names = canvases.iter().map(|f| &f.name).collect::<Vec<&String>>();
+    while names.contains(&&name) {
+        canvas_name_index += 1;
+        name = format!("{} {}", UNTITLED_NAME, canvas_name_index);
+    }
+    name
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     let plow_header = format!("[plow {}]", env!("CARGO_PKG_VERSION"));
@@ -351,14 +363,10 @@ async fn main() {
                                 if ui.button("okay").clicked() {
                                     if let Ok(width) = new_file_width.parse() {
                                         if let Ok(height) = new_file_height.parse() {
+                                            let new_name = get_new_canvas_name(&canvases);
                                             active_canvas = canvases.len();
                                             canvases.push(
-                                                Canvas::new(
-                                                    width,
-                                                    height,
-                                                    String::from(UNTITLED_NAME),
-                                                )
-                                                .unwrap(),
+                                                Canvas::new(width, height, new_name).unwrap(),
                                             );
                                             new_file_window_open = false;
                                         }
