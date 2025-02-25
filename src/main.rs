@@ -118,7 +118,7 @@ async fn main() {
         // check if image has been loaded from file picker
         if let FileInputResult::Data(data) = file_picker.update() {
             println!("got data!");
-            let image = image_from_bytes(&data.bytes); //Image::from_file_with_format(&data.bytes, None);
+            let image = image_from_bytes(&data.bytes);
 
             let (name_without_extension, _) = data
                 .name
