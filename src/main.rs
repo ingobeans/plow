@@ -195,17 +195,18 @@ async fn main() {
                             ui.close_menu();
                             file_picker.open_dialog();
                         }
-                        if ui.button("save").clicked() {
-                            ui.close_menu();
-                            canvases[active_canvas].export(true);
-                        }
-                        // add "save as" button only on standalone
+                        // add "save" button only on standalone
+                        // on web only "save as" is available
                         #[cfg(not(target_arch = "wasm32"))]
                         {
-                            if ui.button("save as").clicked() {
+                            if ui.button("save").clicked() {
                                 ui.close_menu();
-                                canvases[active_canvas].export(false);
+                                canvases[active_canvas].export(true);
                             }
+                        }
+                        if ui.button("save as").clicked() {
+                            ui.close_menu();
+                            canvases[active_canvas].export(false);
                         }
                     });
                     ui.menu_button("view", |ui| {
