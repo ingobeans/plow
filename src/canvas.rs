@@ -233,9 +233,9 @@ impl Canvas {
     pub fn is_modified(&self) -> bool {
         let mut modified = false;
         for layer in &self.layers {
-            modified = layer.modified || modified;
+            modified |= layer.modified;
         }
-        modified = self.layers.len() > 1 || modified;
+        modified |= self.layers.len() > 1;
         modified
     }
     fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
