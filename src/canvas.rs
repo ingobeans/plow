@@ -1,4 +1,3 @@
-use image::{write_buffer_with_format, ExtendedColorType};
 use line_drawing::Bresenham;
 use macroquad::prelude::*;
 use std::{hash::Hash, io::Cursor};
@@ -187,29 +186,15 @@ pub struct Canvas {
     pub camera_grid_size: f32,
     pub camera_x: f32,
     pub camera_y: f32,
-}
-
-fn export_png(image: Image, name: String) {
-    // buffer to store png image data in
-    let mut buffered_writer = Cursor::new(Vec::new());
-
-    // convert image to png and write to the buffer
-    write_buffer_with_format(
-        &mut buffered_writer,
-        &image.bytes,
-        image.width as u32,
-        image.height as u32,
-        ExtendedColorType::Rgba8,
-        image::ImageFormat::Png,
-    )
-    .expect("Couldn't convert canvas to PNG buffer.");
-
-    // download the buffer data with quad-file-download
-    let _ = quad_files::download(&(name + ".png"), &buffered_writer.into_inner(), Some("PNG"));
+    pub preffered_file_format: ImageFormat,
 }
 
 impl Canvas {
-    pub fn from_image(image: Image, name: String) -> Result<Self, std::io::Error> {
+    pub fn from_image(
+        image: Image,
+        name: String,
+        preffered_file_format: ImageFormat,
+    ) -> Result<Self, std::io::Error> {
         let width: u16 = image.width;
         let height: u16 = image.height;
         if !validate_canvas_size(width, height) {
@@ -228,6 +213,7 @@ impl Canvas {
             camera_grid_size,
             camera_x,
             camera_y,
+            preffered_file_format,
         })
     }
     pub fn is_modified(&self) -> bool {
@@ -248,7 +234,7 @@ impl Canvas {
     }
     pub fn new(width: u16, height: u16, name: String) -> Result<Self, std::io::Error> {
         let image = gen_empty_image(width, height);
-        Canvas::from_image(image, name)
+        Canvas::from_image(image, name, ImageFormat::Png)
     }
     pub fn to_image(&self) -> Image {
         let mut image = self.layers.last().unwrap().image.clone();
@@ -259,7 +245,29 @@ impl Canvas {
     }
     pub fn export(&self) {
         let image = self.to_image();
-        export_png(image, self.name.clone());
+
+        // buffer to store png image data in
+        let mut buffered_writer = Cursor::new(Vec::new());
+
+        // convert image to png and write to the buffer
+        image::write_buffer_with_format(
+            &mut buffered_writer,
+            &image.bytes,
+            image.width as u32,
+            image.height as u32,
+            image::ColorType::Rgba8,
+            self.preffered_file_format,
+        )
+        .expect("Couldn't convert canvas to bytes buffer.");
+
+        let file_ext = self.preffered_file_format.extensions_str()[0];
+
+        // download the buffer data with quad-file-download
+        let _ = quad_files::download(
+            &(self.name.clone() + "." + file_ext),
+            &buffered_writer.into_inner(),
+            Some(""),
+        );
     }
     fn get_new_layer_name(&self) -> String {
         // get a name for the new layer (that isnt already used!!!!!)

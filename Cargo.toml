@@ -1,6 +1,6 @@
 [package]
 name = "plow"
-version = "0.2.50"
+version = "0.2.51"
 edition = "2021"
 
 [dependencies]
@@ -15,7 +15,7 @@ quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 quad-egui-dnd = { git = "https://github.com/ingobeans/cool_egui_dnd.git" }
 line_drawing = "1.0.0"
 # include most standard formats except avif, since it uses ravif which uses wasm-bindgen making the web version not function
-image = { version = "0.25.5", default-features = false, features = [
+image = { version = "^0.24", default-features = false, features = [
     "bmp",
     "dds",
     "gif",

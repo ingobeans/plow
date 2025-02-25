@@ -52,17 +52,23 @@ fn get_new_canvas_name(canvases: &[Canvas]) -> String {
     name
 }
 
-/// Works just like macroquad's [Image::from_file_with_format], but uses our version of the `image` crate which has support enabled for image formats other than PNG
-fn image_from_bytes(bytes: &[u8]) -> Result<Image, image::ImageError> {
-    let dynamic_image = image::load_from_memory(bytes)?;
+/// Works like macroquad's [Image::from_file_with_format], but uses our version of the `image` crate which has support enabled for image formats other than PNG
+///
+/// Also returns which [ImageFormat] was used
+fn image_from_bytes(bytes: &[u8]) -> Result<(Image, ImageFormat), image::ImageError> {
+    let format_guess = image::guess_format(bytes)?;
+    let dynamic_image = image::load_from_memory_with_format(bytes, format_guess)?;
     let width = dynamic_image.width() as u16;
     let height = dynamic_image.height() as u16;
     let image_bytes = dynamic_image.to_rgba8().into_raw();
-    Ok(Image {
-        bytes: image_bytes,
-        width,
-        height,
-    })
+    Ok((
+        Image {
+            bytes: image_bytes,
+            width,
+            height,
+        },
+        format_guess,
+    ))
 }
 
 #[macroquad::main("plow")]
@@ -118,19 +124,20 @@ async fn main() {
         // check if image has been loaded from file picker
         if let FileInputResult::Data(data) = file_picker.update() {
             println!("got data!");
-            let image = image_from_bytes(&data.bytes);
+            let result = image_from_bytes(&data.bytes);
 
             let (name_without_extension, _) = data
                 .name
                 .rsplit_once('.')
                 .unwrap_or((UNTITLED_NAME, UNTITLED_NAME));
 
-            if let Ok(image) = image {
+            if let Ok((image, format)) = result {
                 active_canvas = canvases.len();
-                canvases
-                    .push(Canvas::from_image(image, name_without_extension.to_string()).unwrap());
+                canvases.push(
+                    Canvas::from_image(image, name_without_extension.to_string(), format).unwrap(),
+                );
             } else {
-                let err = image.unwrap_err();
+                let err = result.unwrap_err();
                 println!("image failed to load {}", err);
             }
         }
