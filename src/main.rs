@@ -178,6 +178,7 @@ async fn main() {
                             file_picker.open_dialog();
                         }
                         if ui.button("save").clicked() {
+                            ui.close_menu();
                             canvases[active_canvas].export();
                         }
                     });
@@ -407,7 +408,17 @@ async fn main() {
                 // ctrl + m => merge layers down
                 if is_key_pressed(KeyCode::M) {
                     canvases[active_canvas].merge_layers_down();
-                } else if is_key_down(KeyCode::LeftShift) {
+                }
+                // ctrl + s => save/export
+                else if is_key_pressed(KeyCode::S) {
+                    canvases[active_canvas].export();
+                }
+                // ctrl + o => open file
+                else if is_key_pressed(KeyCode::O) {
+                    file_picker.open_dialog();
+                }
+                // otherwise check the ctrl+shift keybinds
+                else if is_key_down(KeyCode::LeftShift) {
                     // ctrl+shift+n => new layer
                     if is_key_pressed(KeyCode::N) {
                         canvases[active_canvas].new_layer();
