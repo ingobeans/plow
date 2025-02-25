@@ -97,6 +97,8 @@ async fn main() {
     let mut tools_window_open = true;
     let mut layers_window_open = true;
 
+    let mut typing_in_text_box = false;
+
     loop {
         clear_background(BG_COLOR);
 
@@ -130,11 +132,6 @@ async fn main() {
             tool_before_holding_alt = Some(active_tool);
             active_tool = &tools[3];
         }
-
-        // store state of text inputs to compare if theyve been edited
-        let pre_new_file_width = new_file_width.clone();
-        let pre_new_file_height = new_file_height.clone();
-        let pre_rename_layer_text = rename_layer_text.clone();
 
         // define ui
         let mut mouse_over_ui = false;
@@ -328,7 +325,8 @@ async fn main() {
                             .num_columns(2)
                             .show(ui, |ui| {
                                 ui.label("name");
-                                ui.text_edit_singleline(&mut rename_layer_text);
+                                typing_in_text_box |=
+                                    ui.text_edit_singleline(&mut rename_layer_text).changed();
                                 ui.end_row();
                                 if ui.button("okay").clicked() {
                                     let names = canvases[active_canvas]
@@ -360,10 +358,12 @@ async fn main() {
                             .num_columns(2)
                             .show(ui, |ui| {
                                 ui.label("width");
-                                ui.text_edit_singleline(&mut new_file_width);
+                                typing_in_text_box |=
+                                    ui.text_edit_singleline(&mut new_file_width).changed();
                                 ui.end_row();
                                 ui.label("height");
-                                ui.text_edit_singleline(&mut new_file_height);
+                                typing_in_text_box |=
+                                    ui.text_edit_singleline(&mut new_file_height).changed();
                                 ui.end_row();
                                 if ui.button("okay").clicked() {
                                     if let Ok(width) = new_file_width.parse() {
@@ -386,11 +386,6 @@ async fn main() {
 
             mouse_over_ui = egui_ctx.is_pointer_over_area() || egui_ctx.is_using_pointer();
         });
-        let typing_in_text_box = {
-            pre_new_file_height != new_file_height
-                || pre_new_file_width != new_file_width
-                || pre_rename_layer_text != rename_layer_text
-        };
 
         // check for pressed keybinds (when the user isnt typing in a text box)
         if !typing_in_text_box {
