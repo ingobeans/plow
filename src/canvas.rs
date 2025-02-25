@@ -1,6 +1,6 @@
 use line_drawing::Bresenham;
 use macroquad::prelude::*;
-use std::{hash::Hash, io::Cursor};
+use std::{hash::Hash, io::Cursor, path::PathBuf};
 
 use crate::{consts::MIN_ZOOM, tools::Stroke};
 
@@ -187,6 +187,8 @@ pub struct Canvas {
     pub camera_x: f32,
     pub camera_y: f32,
     pub preffered_file_format: ImageFormat,
+    pub save_path: Option<PathBuf>,
+    modified: bool,
 }
 
 impl Canvas {
@@ -214,14 +216,15 @@ impl Canvas {
             camera_x,
             camera_y,
             preffered_file_format,
+            save_path: None,
+            modified: false,
         })
     }
     pub fn is_modified(&self) -> bool {
-        let mut modified = false;
+        let mut modified = self.modified;
         for layer in &self.layers {
             modified |= layer.modified;
         }
-        modified |= self.layers.len() > 1;
         modified
     }
     fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
@@ -243,7 +246,13 @@ impl Canvas {
         }
         image
     }
-    pub fn export(&self) {
+    pub fn export(&mut self, overwrite_old_if_possible: bool) {
+        // mark all layers as unmodified
+        for layer in self.layers.iter_mut() {
+            layer.modified = false;
+        }
+        self.modified = false;
+
         let image = self.to_image();
 
         // buffer to store png image data in
@@ -262,12 +271,31 @@ impl Canvas {
 
         let file_ext = self.preffered_file_format.extensions_str()[0];
 
+        // if on standalone, and file has already been saved before to a known path, and `overwrite_old_if_possible` is true, then directly overwrite old path
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            if overwrite_old_if_possible {
+                if let Some(path) = &self.save_path {
+                    let _ = std::fs::write(path, buffered_writer.into_inner());
+                    return;
+                }
+            }
+        }
+
         // download the buffer data with quad-file-download
-        let _ = quad_files::download(
+        let result = quad_files::download(
             &(self.name.clone() + "." + file_ext),
             &buffered_writer.into_inner(),
             Some(""),
         );
+
+        // keep track where file was saved (only for standalone)
+        if let Ok(Some(location)) = result {
+            if let Some(file_name) = location.file_stem() {
+                self.name = file_name.to_string_lossy().to_string();
+            }
+            self.save_path = Some(location);
+        }
     }
     fn get_new_layer_name(&self) -> String {
         // get a name for the new layer (that isnt already used!!!!!)
@@ -285,6 +313,7 @@ impl Canvas {
         name
     }
     pub fn new_layer(&mut self) {
+        self.modified = true;
         let name = self.get_new_layer_name();
 
         let image = gen_empty_image(self.width, self.height);
@@ -293,6 +322,7 @@ impl Canvas {
             .insert(self.current_layer, Layer::new(image, name));
     }
     pub fn merge_layers_down(&mut self) {
+        self.modified = true;
         if self.current_layer != self.layers.len() - 1 {
             let old_layer = self.layers.remove(self.current_layer);
             self.layers[self.current_layer]
@@ -304,6 +334,7 @@ impl Canvas {
         }
     }
     pub fn duplicate_layer(&mut self) {
+        self.modified = true;
         let name = self.get_new_layer_name();
         let source = &self.layers[self.current_layer];
         let image = source.image.clone();
@@ -312,6 +343,7 @@ impl Canvas {
         self.layers.insert(self.current_layer, new);
     }
     pub fn delete_layer(&mut self) {
+        self.modified = true;
         if self.layers.len() > 1 {
             self.layers.remove(self.current_layer);
             if self.current_layer == self.layers.len() {

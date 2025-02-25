@@ -197,7 +197,15 @@ async fn main() {
                         }
                         if ui.button("save").clicked() {
                             ui.close_menu();
-                            canvases[active_canvas].export();
+                            canvases[active_canvas].export(true);
+                        }
+                        // add "save as" button only on standalone
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            if ui.button("save as").clicked() {
+                                ui.close_menu();
+                                canvases[active_canvas].export(false);
+                            }
                         }
                     });
                     ui.menu_button("view", |ui| {
@@ -421,20 +429,8 @@ async fn main() {
             if is_key_pressed(KeyCode::X) {
                 (primary_color, secondary_color) = (secondary_color, primary_color)
             } else if is_key_down(KeyCode::LeftControl) {
-                // ctrl + m => merge layers down
-                if is_key_pressed(KeyCode::M) {
-                    canvases[active_canvas].merge_layers_down();
-                }
-                // ctrl + s => save/export
-                else if is_key_pressed(KeyCode::S) {
-                    canvases[active_canvas].export();
-                }
-                // ctrl + o => open file
-                else if is_key_pressed(KeyCode::O) {
-                    file_picker.open_dialog();
-                }
-                // otherwise check the ctrl+shift keybinds
-                else if is_key_down(KeyCode::LeftShift) {
+                // check ctrl + shift keybinds first
+                if is_key_down(KeyCode::LeftShift) {
                     // ctrl+shift+n => new layer
                     if is_key_pressed(KeyCode::N) {
                         canvases[active_canvas].new_layer();
@@ -447,6 +443,23 @@ async fn main() {
                     else if is_key_pressed(KeyCode::D) {
                         canvases[active_canvas].duplicate_layer();
                     }
+                    // ctrl + shift + s => save/export (dont overwrite)
+                    else if is_key_pressed(KeyCode::S) {
+                        canvases[active_canvas].export(false);
+                    }
+                }
+                // otherwise check ctrl keybinds
+                // ctrl + m => merge layers down
+                else if is_key_pressed(KeyCode::M) {
+                    canvases[active_canvas].merge_layers_down();
+                }
+                // ctrl + s => save/export (do overwrite if possible)
+                else if is_key_pressed(KeyCode::S) {
+                    canvases[active_canvas].export(true);
+                }
+                // ctrl + o => open file
+                else if is_key_pressed(KeyCode::O) {
+                    file_picker.open_dialog();
                 }
             }
         }
