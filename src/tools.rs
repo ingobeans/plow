@@ -233,21 +233,16 @@ impl Tool for Eraser {
     fn cursor_type(&self) -> CursorType {
         CursorType::Stroke
     }
-    fn update(&self, ctx: ToolContext) {
-        let mut color = [0., 0., 0., 0.];
-        // hmm will have to make this less tedious
-        let new_ctx = ToolContext {
-            layer: ctx.layer,
-            cursor_x: ctx.cursor_x,
-            cursor_y: ctx.cursor_y,
-            cursor_in_bounds: ctx.cursor_in_bounds,
-            last_cursor_x: ctx.last_cursor_x,
-            last_cursor_y: ctx.last_cursor_y,
-            primary_color: &mut color.clone(),
-            secondary_color: &mut color,
-            settings: ctx.settings,
-        };
-        self.internal_brush.update(new_ctx);
+    fn update(&self, ctx: ToolContext<'_>) {
+        let mut ctx = ctx; // redeclare ctx as mut. works for some reason
+
+        let mut new_primary_color = [0., 0., 0., 0.];
+        let mut new_secondary_color = new_primary_color;
+
+        ctx.primary_color = &mut new_primary_color;
+        ctx.secondary_color = &mut new_secondary_color;
+
+        self.internal_brush.update(ctx);
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
         self.internal_brush.draw_buttons(ui, settings);
