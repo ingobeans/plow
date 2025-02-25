@@ -481,10 +481,16 @@ async fn main() {
 
         if !mouse_over_ui {
             let active_layer = canvases[active_canvas].current_layer;
+            let layer = &mut canvases[active_canvas].layers[active_layer];
+            let cursor_in_bounds = !(cursor_x < 0
+                || cursor_y < 0
+                || cursor_x as usize >= layer.width()
+                || cursor_y as usize >= layer.height());
             active_tool.update(ToolContext {
-                layer: &mut canvases[active_canvas].layers[active_layer],
+                layer,
                 cursor_x,
                 cursor_y,
+                cursor_in_bounds,
                 last_cursor_x,
                 last_cursor_y,
                 primary_color: &mut primary_color,

@@ -143,6 +143,7 @@ pub struct ToolContext<'a> {
     pub layer: &'a mut Layer,
     pub cursor_x: i16,
     pub cursor_y: i16,
+    pub cursor_in_bounds: bool,
     pub last_cursor_x: Option<i16>,
     pub last_cursor_y: Option<i16>,
     pub primary_color: &'a mut [f32; 4],
@@ -239,6 +240,7 @@ impl Tool for Eraser {
             layer: ctx.layer,
             cursor_x: ctx.cursor_x,
             cursor_y: ctx.cursor_y,
+            cursor_in_bounds: ctx.cursor_in_bounds,
             last_cursor_x: ctx.last_cursor_x,
             last_cursor_y: ctx.last_cursor_y,
             primary_color: &mut color.clone(),
@@ -261,6 +263,10 @@ impl Tool for ColorPicker {
         Some(KeyCode::K)
     }
     fn update(&self, ctx: ToolContext) {
+        // return early if not cursor in bounds
+        if !ctx.cursor_in_bounds {
+            return;
+        }
         let color_slot = if is_mouse_button_pressed(MouseButton::Left) {
             Some(ctx.primary_color)
         } else if is_mouse_button_pressed(MouseButton::Right) {
@@ -380,6 +386,11 @@ impl Tool for Bucket {
             );
     }
     fn update(&self, ctx: ToolContext) {
+        // return early if mouse not in canvas
+        //ctx.cursor_x < 0 || ctx.cursor_y < 0 || ctx.cursor_x >= ctx.layer.width() || ctx.cursor_y >= ctx.layer.height()
+        if !ctx.cursor_in_bounds {
+            return;
+        }
         let draw_color = if is_mouse_button_pressed(MouseButton::Left) {
             Some(ctx.primary_color)
         } else if is_mouse_button_pressed(MouseButton::Right) {
