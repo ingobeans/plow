@@ -126,6 +126,7 @@ pub struct Layer {
     pub image: Image,
     pub texture: Texture2D,
     pub bounds_tracker: BoundsTracker,
+    pub modified: bool,
 }
 
 impl Hash for Layer {
@@ -143,6 +144,7 @@ impl Layer {
             visible: true,
             texture,
             bounds_tracker: BoundsTracker::new(),
+            modified: false,
         }
     }
     pub fn width(&self) -> usize {
@@ -154,12 +156,16 @@ impl Layer {
     pub fn set_pixel(&mut self, x: u32, y: u32, color: Color) {
         self.bounds_tracker.track(x, y);
         self.image.set_pixel(x, y, color);
+        self.modified = true;
     }
     pub fn flush_texture(&mut self) {
         let bounds = self.bounds_tracker.flush();
         self.force_update_region(bounds);
     }
-
+    pub fn get_image_data_mut(&mut self) -> &mut [[u8; 4]] {
+        self.modified = true;
+        self.image.get_image_data_mut()
+    }
     pub fn force_update_region(&mut self, region: Option<Rect>) {
         //if let Some(region) = region {
         //    for x in region.x as u32..(region.x + region.w) as u32 {
@@ -224,6 +230,14 @@ impl Canvas {
             camera_y,
         })
     }
+    pub fn is_modified(&self) -> bool {
+        let mut modified = false;
+        for layer in &self.layers {
+            modified = layer.modified || modified;
+        }
+        modified = self.layers.len() > 1 || modified;
+        modified
+    }
     fn generate_camera_bounds_to_fit(canvas_width: u16, canvas_height: u16) -> (f32, f32, f32) {
         // make zoom to show entire canvas height
         let camera_grid_size: f32 = (screen_width() / canvas_height as f32 / 2.0).max(MIN_ZOOM);
@@ -277,12 +291,16 @@ impl Canvas {
                 .image
                 .overlay(&old_layer.image);
             self.layers[self.current_layer].force_update_region(None);
+            self.layers[self.current_layer].modified =
+                self.layers[self.current_layer].modified || old_layer.modified;
         }
     }
     pub fn duplicate_layer(&mut self) {
         let name = self.get_new_layer_name();
-        let image = self.layers[self.current_layer].image.clone();
-        let new = Layer::new(image, name);
+        let source = &self.layers[self.current_layer];
+        let image = source.image.clone();
+        let mut new = Layer::new(image, name);
+        new.modified = source.modified;
         self.layers.insert(self.current_layer, new);
     }
     pub fn delete_layer(&mut self) {

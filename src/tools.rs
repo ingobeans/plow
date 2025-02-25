@@ -390,7 +390,7 @@ impl Tool for Bucket {
         if let Some(draw_color) = draw_color {
             let width = ctx.layer.width();
             let height = ctx.layer.height();
-            let pixels: &mut [[u8; 4]] = ctx.layer.image.get_image_data_mut();
+            let pixels: &mut [[u8; 4]] = ctx.layer.get_image_data_mut();
 
             // idek
             // convert the 0-100 scale tolerance to a 0-1020 scale tolerance (1020=255*4)

@@ -40,7 +40,7 @@ fn new_general_window(title: impl Into<WidgetText>, open: &mut bool) -> egui::Wi
         .open(open)
 }
 
-fn get_new_canvas_name(canvases: &Vec<Canvas>) -> String {
+fn get_new_canvas_name(canvases: &[Canvas]) -> String {
     // get a name for the new canvas (that isnt already used!!!!!)
     let mut canvas_name_index = canvases.len() + 1;
     let mut name = format!("{} {}", UNTITLED_NAME, canvas_name_index);
@@ -145,7 +145,11 @@ async fn main() {
                     ui.label(plow_header.clone());
                     ui.separator();
                     for (index, canvas) in canvases.iter().enumerate() {
-                        let mut button = ui.button(canvas.name.clone());
+                        let mut text = canvas.name.clone();
+                        if canvas.is_modified() {
+                            text += "*"
+                        }
+                        let mut button = ui.button(text);
                         if index == active_canvas {
                             button = button.highlight();
                         }
