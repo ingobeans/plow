@@ -52,6 +52,19 @@ fn get_new_canvas_name(canvases: &[Canvas]) -> String {
     name
 }
 
+/// Works just like macroquad's [Image::from_file_with_format], but uses our version of the `image` crate which has support enabled for image formats other than PNG
+fn image_from_bytes(bytes: &[u8]) -> Result<Image, image::ImageError> {
+    let dynamic_image = image::load_from_memory(bytes)?;
+    let width = dynamic_image.width() as u16;
+    let height = dynamic_image.height() as u16;
+    let image_bytes = dynamic_image.to_rgba8().into_raw();
+    Ok(Image {
+        bytes: image_bytes,
+        width,
+        height,
+    })
+}
+
 #[macroquad::main("plow")]
 async fn main() {
     let plow_header = format!("[plow {}]", env!("CARGO_PKG_VERSION"));
@@ -105,7 +118,7 @@ async fn main() {
         // check if image has been loaded from file picker
         if let FileInputResult::Data(data) = file_picker.update() {
             println!("got data!");
-            let image = Image::from_file_with_format(&data.bytes, None);
+            let image = image_from_bytes(&data.bytes); //Image::from_file_with_format(&data.bytes, None);
 
             let (name_without_extension, _) = data
                 .name
@@ -117,7 +130,8 @@ async fn main() {
                 canvases
                     .push(Canvas::from_image(image, name_without_extension.to_string()).unwrap());
             } else {
-                println!("image failed to load");
+                let err = image.unwrap_err();
+                println!("image failed to load {}", err);
             }
         }
         // if alt was released restore previous tool from color picker'

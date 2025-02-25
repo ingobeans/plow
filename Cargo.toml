@@ -1,6 +1,6 @@
 [package]
 name = "plow"
-version = "0.2.49"
+version = "0.2.50"
 edition = "2021"
 
 [dependencies]
@@ -14,4 +14,17 @@ quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 # my modded version of egui-dnd that doesnt use wasm-bindgen
 quad-egui-dnd = { git = "https://github.com/ingobeans/cool_egui_dnd.git" }
 line_drawing = "1.0.0"
-image = { version = "0.25.5", default-features = false, features = ["png"] }
+# include most standard formats except avif, since it uses ravif which uses wasm-bindgen making the web version not function
+image = { version = "0.25.5", default-features = false, features = [
+    "bmp",
+    "dds",
+    "gif",
+    "ico",
+    "jpeg",
+    "png",
+    "pnm",
+    "qoi",
+    "tga",
+    "tiff",
+    "webp",
+] }
