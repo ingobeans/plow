@@ -233,7 +233,7 @@ impl Tool for Eraser {
     fn cursor_type(&self) -> CursorType {
         CursorType::Stroke
     }
-    fn update(&self, ctx: ToolContext<'_>) {
+    fn update(&self, ctx: ToolContext) {
         let mut ctx = ctx; // redeclare ctx as mut. works for some reason
 
         let mut new_primary_color = [0., 0., 0., 0.];
