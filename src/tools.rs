@@ -127,6 +127,7 @@ pub struct ToolsSettings {
     pub color_tolerance: u8,
     pub flood_mode_continuous: bool,
     pub stroke: Stroke,
+    pub current_stroke: Option<Layer>,
 }
 
 impl ToolsSettings {
@@ -135,12 +136,13 @@ impl ToolsSettings {
             color_tolerance: 0,
             flood_mode_continuous: true,
             stroke: Stroke::new(1),
+            current_stroke: None,
         }
     }
 }
 
 pub struct ToolContext<'a> {
-    pub layer: &'a mut Layer,
+    pub canvas: &'a mut Canvas,
     pub cursor_x: i16,
     pub cursor_y: i16,
     pub cursor_in_bounds: bool,
@@ -164,6 +166,37 @@ pub trait Tool {
     }
 }
 pub struct Brush;
+impl Brush {
+    #[allow(clippy::too_many_arguments)]
+    fn draw_stroke(
+        &self,
+        stroke: &Stroke,
+        cursor_x: i16,
+        cursor_y: i16,
+        last_cursor_x: Option<i16>,
+        last_cursor_y: Option<i16>,
+        layer: &mut Layer,
+        draw_color: Color,
+    ) {
+        if let Some(last_cursor_x) = last_cursor_x {
+            if let Some(last_cursor_y) = last_cursor_y {
+                draw_line_image(
+                    layer,
+                    draw_color,
+                    last_cursor_x,
+                    last_cursor_y,
+                    cursor_x,
+                    cursor_y,
+                    stroke,
+                );
+                layer.force_update_region(None);
+            }
+        } else {
+            layer.set_pixel(cursor_x as u32, cursor_y as u32, draw_color);
+            layer.force_update_region(None);
+        }
+    }
+}
 impl Tool for Brush {
     fn name(&self) -> String {
         String::from("brush")
@@ -185,7 +218,15 @@ impl Tool for Brush {
         }
     }
     fn update(&self, ctx: ToolContext) {
-        // draw pixel if LMB is pressed
+        // when start of stroke, create an empty image to hold the stroke image data, to later be written to the current layer
+        if is_mouse_button_pressed(MouseButton::Left) || is_mouse_button_pressed(MouseButton::Right)
+        {
+            let image = gen_empty_image(
+                ctx.canvas.layers[ctx.canvas.current_layer].image.width,
+                ctx.canvas.layers[ctx.canvas.current_layer].image.height,
+            );
+            ctx.settings.current_stroke = Some(Layer::new(image, String::new()))
+        }
 
         let draw_color = if is_mouse_button_down(MouseButton::Left) {
             Some(rgb_array_to_color(ctx.primary_color))
@@ -194,27 +235,52 @@ impl Tool for Brush {
         } else {
             None
         };
-        if let Some(draw_color) = draw_color {
-            if let Some(last_cursor_x) = ctx.last_cursor_x {
-                if let Some(last_cursor_y) = ctx.last_cursor_y {
-                    draw_line_image(
-                        ctx.layer,
-                        draw_color,
-                        last_cursor_x,
-                        last_cursor_y,
-                        ctx.cursor_x,
-                        ctx.cursor_y,
-                        &ctx.settings.stroke,
-                    );
-                    ctx.layer.flush_texture();
-                }
-            } else {
-                ctx.layer
-                    .image
-                    .set_pixel(ctx.cursor_x as u32, ctx.cursor_y as u32, draw_color);
 
-                ctx.layer.flush_texture();
+        if let Some(draw_color) = draw_color {
+            if let Some(current_stroke) = &mut ctx.settings.current_stroke {
+                self.draw_stroke(
+                    &ctx.settings.stroke,
+                    ctx.cursor_x,
+                    ctx.cursor_y,
+                    ctx.last_cursor_x,
+                    ctx.last_cursor_y,
+                    current_stroke,
+                    draw_color,
+                );
             }
+        }
+
+        // on release, flush the current_stroke image to the current layer's image
+        if is_mouse_button_released(MouseButton::Left)
+            || is_mouse_button_released(MouseButton::Right)
+        {
+            if let Some(current_stroke) = &mut ctx.settings.current_stroke {
+                let bounds = current_stroke.bounds_tracker.flush();
+                if let Some(bounds) = bounds {
+                    // save old image in history
+                    let image = ctx.canvas.layers[ctx.canvas.current_layer].image.clone();
+                    ctx.canvas
+                        .undo_history
+                        .push(UndoAction::LayerFull(ctx.canvas.current_layer, image));
+
+                    //let sub_image = ctx.canvas.layers[ctx.canvas.current_layer]
+                    //    .image
+                    //    .sub_image(bounds);
+                    //ctx.canvas.undo_history.push(UndoAction::LayerRegion(
+                    //    ctx.canvas.current_layer,
+                    //    bounds,
+                    //    sub_image,
+                    //));
+
+                    // write brush stroke data on image
+                    overlay_images(
+                        &mut ctx.canvas.layers[ctx.canvas.current_layer].image,
+                        &current_stroke.image,
+                    );
+                    ctx.canvas.layers[ctx.canvas.current_layer].force_update_region(Some(bounds));
+                }
+            }
+            ctx.settings.current_stroke = None;
         }
     }
 }
@@ -234,15 +300,22 @@ impl Tool for Eraser {
         CursorType::Stroke
     }
     fn update(&self, ctx: ToolContext) {
-        let mut ctx = ctx; // redeclare ctx as mut. works for some reason
-
-        let mut new_primary_color = [0., 0., 0., 0.];
-        let mut new_secondary_color = new_primary_color;
-
-        ctx.primary_color = &mut new_primary_color;
-        ctx.secondary_color = &mut new_secondary_color;
-
-        self.internal_brush.update(ctx);
+        if is_mouse_button_down(MouseButton::Left) || is_mouse_button_down(MouseButton::Right) {
+            self.internal_brush.draw_stroke(
+                &ctx.settings.stroke,
+                ctx.cursor_x,
+                ctx.cursor_y,
+                ctx.last_cursor_x,
+                ctx.last_cursor_y,
+                &mut ctx.canvas.layers[ctx.canvas.current_layer],
+                Color {
+                    r: 0.,
+                    g: 0.,
+                    b: 0.,
+                    a: 0.,
+                },
+            );
+        }
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
         self.internal_brush.draw_buttons(ui, settings);
@@ -270,8 +343,7 @@ impl Tool for ColorPicker {
             None
         };
         if let Some(color_slot) = color_slot {
-            let color = ctx
-                .layer
+            let color = ctx.canvas.layers[ctx.canvas.current_layer]
                 .image
                 .get_pixel(ctx.cursor_x as u32, ctx.cursor_y as u32);
             let color = [color.r, color.g, color.b, color.a];
@@ -286,6 +358,34 @@ fn compare_colors(color_a: [u8; 4], color_b: [u8; 4]) -> u16 {
         diffs += (color_a[part] as i16 - color_b[part] as i16).unsigned_abs()
     }
     diffs
+}
+
+fn overlay_images(source: &mut Image, other: &Image) {
+    for i in 0..source.bytes.len() / 4 {
+        let c1 = [
+            other.bytes[i * 4] as f32 / 255.,
+            other.bytes[i * 4 + 1] as f32 / 255.,
+            other.bytes[i * 4 + 2] as f32 / 255.,
+            other.bytes[i * 4 + 3] as f32 / 255.,
+        ];
+        let c2 = [
+            source.bytes[i * 4] as f32 / 255.,
+            source.bytes[i * 4 + 1] as f32 / 255.,
+            source.bytes[i * 4 + 2] as f32 / 255.,
+            source.bytes[i * 4 + 3] as f32 / 255.,
+        ];
+        let new_color = [
+            f32::min(c1[0] + (1. - c1[3]) * c2[0], 1.),
+            f32::min(c1[1] + (1. - c1[3]) * c2[1], 1.),
+            f32::min(c1[2] + (1. - c1[3]) * c2[2], 1.),
+            f32::min(c1[3] + (1. - c1[3]) * c2[3], 1.),
+        ];
+
+        source.bytes[i * 4] = (new_color[0] * 255.) as u8;
+        source.bytes[i * 4 + 1] = (new_color[1] * 255.) as u8;
+        source.bytes[i * 4 + 2] = (new_color[2] * 255.) as u8;
+        source.bytes[i * 4 + 3] = (new_color[3] * 255.) as u8;
+    }
 }
 
 fn flood_fill(
@@ -382,7 +482,7 @@ impl Tool for Bucket {
     }
     fn update(&self, ctx: ToolContext) {
         // return early if mouse not in canvas
-        //ctx.cursor_x < 0 || ctx.cursor_y < 0 || ctx.cursor_x >= ctx.layer.width() || ctx.cursor_y >= ctx.layer.height()
+        //ctx.cursor_x < 0 || ctx.cursor_y < 0 || ctx.cursor_x >= ctx.canvas.layers[ctx.canvas.current_layer].width() || ctx.cursor_y >= ctx.canvas.layers[ctx.canvas.current_layer].height()
         if !ctx.cursor_in_bounds {
             return;
         }
@@ -394,9 +494,15 @@ impl Tool for Bucket {
             None
         };
         if let Some(draw_color) = draw_color {
-            let width = ctx.layer.width();
-            let height = ctx.layer.height();
-            let pixels: &mut [[u8; 4]] = ctx.layer.get_image_data_mut();
+            let old_image = ctx.canvas.layers[ctx.canvas.current_layer].image.clone();
+            ctx.canvas
+                .undo_history
+                .push(UndoAction::LayerFull(ctx.canvas.current_layer, old_image));
+
+            let width = ctx.canvas.layers[ctx.canvas.current_layer].width();
+            let height = ctx.canvas.layers[ctx.canvas.current_layer].height();
+            let pixels: &mut [[u8; 4]] =
+                ctx.canvas.layers[ctx.canvas.current_layer].get_image_data_mut();
 
             // idek
             // convert the 0-100 scale tolerance to a 0-1020 scale tolerance (1020=255*4)
@@ -425,7 +531,7 @@ impl Tool for Bucket {
                     tolerance,
                 )
             };
-            ctx.layer.force_update_region(bounds.flush());
+            ctx.canvas.layers[ctx.canvas.current_layer].force_update_region(bounds.flush());
         }
     }
 }

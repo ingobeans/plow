@@ -4,7 +4,7 @@ use std::{hash::Hash, io::Cursor, path::PathBuf};
 
 use crate::{consts::MIN_ZOOM, tools::Stroke};
 
-fn gen_empty_image(width: u16, height: u16) -> Image {
+pub fn gen_empty_image(width: u16, height: u16) -> Image {
     let bytes = vec![0; width as usize * height as usize * 4];
     Image {
         width,
@@ -177,6 +177,22 @@ impl Layer {
     }
 }
 
+/// Action to undo a specific type of change
+pub enum UndoAction {
+    /// For changes of entire layer, track entire layer image data (index, image)
+    LayerFull(usize, Image),
+    /// For changes in a region of layer, track the data of that region (index, region, subimage)
+    LayerRegion(usize, Rect, Image),
+    /// When a layer is created, track its index to know what to remove to undo it
+    CreateLayer(usize),
+    /// When a layer is deleted, track where to insert it, its name and its data to undo it (index, name)
+    DeleteLayer(usize, String, Image),
+    /// When layers are merged down, track index of the destination layer, its name, and both layer's old data (index, source image, source layer name, dest image)
+    MergeLayersDown(usize, Image, String, Image),
+    /// When layer is renamed, track its index and old name
+    RenameLayer(usize, String),
+}
+
 pub struct Canvas {
     pub width: u16,
     pub height: u16,
@@ -188,6 +204,7 @@ pub struct Canvas {
     pub camera_y: f32,
     pub preffered_file_format: ImageFormat,
     pub save_path: Option<PathBuf>,
+    pub undo_history: Vec<UndoAction>,
     modified: bool,
 }
 
@@ -217,6 +234,7 @@ impl Canvas {
             camera_y,
             preffered_file_format,
             save_path: None,
+            undo_history: Vec::new(),
             modified: false,
         })
     }
@@ -297,6 +315,46 @@ impl Canvas {
             self.save_path = Some(location);
         }
     }
+    pub fn rename_layer(&mut self, new_name: String) {
+        let layer = &mut self.layers[self.current_layer];
+
+        // replace layer.name with new_name, and assign the old value of layer.name to old_name
+        let old_name = std::mem::replace(&mut layer.name, new_name);
+
+        self.undo_history
+            .push(UndoAction::RenameLayer(self.current_layer, old_name));
+    }
+    pub fn undo(&mut self) {
+        let action = self.undo_history.pop();
+        if let Some(action) = action {
+            match action {
+                UndoAction::CreateLayer(index) => {
+                    self.layers.remove(index);
+                    self.current_layer = index;
+                }
+                UndoAction::MergeLayersDown(index, source, source_name, dest) => {
+                    let new = Layer::new(source, source_name);
+                    self.layers[index].image = dest;
+                    self.layers[index].force_update_region(None);
+                    self.layers.insert(index, new);
+                }
+                UndoAction::DeleteLayer(index, name, image) => {
+                    let new = Layer::new(image, name);
+                    self.layers.insert(index, new);
+                }
+                UndoAction::RenameLayer(index, name) => {
+                    self.layers[index].name = name;
+                }
+                UndoAction::LayerFull(index, data) => {
+                    self.layers[index].image = data;
+                    self.layers[index].force_update_region(None);
+                }
+                _ => {
+                    unimplemented!();
+                }
+            }
+        }
+    }
     fn get_new_layer_name(&self) -> String {
         // get a name for the new layer (that isnt already used!!!!!)
         let mut layer_name_index = self.layers.len() + 1;
@@ -314,8 +372,11 @@ impl Canvas {
     }
     pub fn new_layer(&mut self) {
         self.modified = true;
-        let name = self.get_new_layer_name();
 
+        self.undo_history
+            .push(UndoAction::CreateLayer(self.current_layer));
+
+        let name = self.get_new_layer_name();
         let image = gen_empty_image(self.width, self.height);
 
         self.layers
@@ -323,6 +384,14 @@ impl Canvas {
     }
     pub fn merge_layers_down(&mut self) {
         self.modified = true;
+
+        self.undo_history.push(UndoAction::MergeLayersDown(
+            self.current_layer,
+            self.layers[self.current_layer].image.clone(),
+            self.layers[self.current_layer].name.clone(),
+            self.layers[self.current_layer + 1].image.clone(),
+        ));
+
         if self.current_layer != self.layers.len() - 1 {
             let old_layer = self.layers.remove(self.current_layer);
             self.layers[self.current_layer]
@@ -335,6 +404,10 @@ impl Canvas {
     }
     pub fn duplicate_layer(&mut self) {
         self.modified = true;
+
+        self.undo_history
+            .push(UndoAction::CreateLayer(self.current_layer));
+
         let name = self.get_new_layer_name();
         let source = &self.layers[self.current_layer];
         let image = source.image.clone();
@@ -344,6 +417,13 @@ impl Canvas {
     }
     pub fn delete_layer(&mut self) {
         self.modified = true;
+
+        self.undo_history.push(UndoAction::DeleteLayer(
+            self.current_layer,
+            self.layers[self.current_layer].name.clone(),
+            self.layers[self.current_layer].image.clone(),
+        ));
+
         if self.layers.len() > 1 {
             self.layers.remove(self.current_layer);
             if self.current_layer == self.layers.len() {

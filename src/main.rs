@@ -116,9 +116,8 @@ async fn main() {
     let mut tools_window_open = true;
     let mut layers_window_open = true;
 
-    let mut typing_in_text_box = false;
-
     loop {
+        let mut typing_in_text_box = false;
         clear_background(BG_COLOR);
 
         // check if image has been loaded from file picker
@@ -366,9 +365,8 @@ async fn main() {
                                         .collect::<Vec<&String>>();
                                     if !names.contains(&&rename_layer_text) {
                                         rename_layer_window_open = false;
-                                        let active_layer = canvases[active_canvas].current_layer;
-                                        canvases[active_canvas].layers[active_layer].name =
-                                            rename_layer_text.clone();
+                                        canvases[active_canvas]
+                                            .rename_layer(rename_layer_text.clone());
                                     }
                                 }
                                 if ui.button("cancel").clicked() {
@@ -468,6 +466,10 @@ async fn main() {
                     new_file_width = DEFAULT_CANVAS_WIDTH.to_string();
                     new_file_height = DEFAULT_CANVAS_HEIGHT.to_string();
                 }
+                // ctrl + z => undo
+                else if is_key_pressed(KeyCode::Z) {
+                    canvases[active_canvas].undo();
+                }
             }
         }
 
@@ -516,14 +518,14 @@ async fn main() {
         }
 
         if !mouse_over_ui {
-            let active_layer = canvases[active_canvas].current_layer;
-            let layer = &mut canvases[active_canvas].layers[active_layer];
+            let canvas = &mut canvases[active_canvas];
+            let layer = &canvas.layers[canvas.current_layer];
             let cursor_in_bounds = !(cursor_x < 0
                 || cursor_y < 0
                 || cursor_x as usize >= layer.width()
                 || cursor_y as usize >= layer.height());
             active_tool.update(ToolContext {
-                layer,
+                canvas,
                 cursor_x,
                 cursor_y,
                 cursor_in_bounds,
@@ -565,6 +567,15 @@ async fn main() {
                     draw_params.clone(),
                 );
             }
+        }
+        if let Some(current_stroke) = &tools_settings.current_stroke {
+            draw_texture_ex(
+                &current_stroke.texture,
+                -canvases[active_canvas].camera_x,
+                -canvases[active_canvas].camera_y,
+                WHITE,
+                draw_params.clone(),
+            );
         }
 
         // draw cursor (if in bounds)

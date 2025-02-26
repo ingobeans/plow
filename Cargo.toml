@@ -1,14 +1,12 @@
 [package]
 name = "plow"
-version = "0.2.53"
+version = "0.3.0"
 edition = "2021"
 
 [dependencies]
 macroquad = "0.4.13"
 # version of egui-macroquad that works with macroquad 0.4.13
 egui-macroquad = { git = "https://github.com/Gyorgy0/egui-macroquad.git" }
-quad-url = "0.1.1"
-sapp-jsutils = "0.1.7"
 # my cross platform file dialog crate
 quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 # my modded version of egui-dnd that doesnt use wasm-bindgen
