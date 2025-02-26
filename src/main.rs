@@ -115,6 +115,7 @@ async fn main() {
     let mut colors_window_open = true;
     let mut tools_window_open = true;
     let mut layers_window_open = true;
+    let mut history_window_open = false;
 
     loop {
         let mut typing_in_text_box = false;
@@ -213,6 +214,7 @@ async fn main() {
                         ui.checkbox(&mut tools_window_open, "tools");
                         ui.checkbox(&mut colors_window_open, "colors");
                         ui.checkbox(&mut layers_window_open, "layers");
+                        ui.checkbox(&mut history_window_open, "history");
                     });
                     ui.separator();
                     active_tool.draw_buttons(ui, &mut tools_settings);
@@ -248,6 +250,31 @@ async fn main() {
                     ui.color_edit_button_rgba_unmultiplied(&mut primary_color);
                     ui.color_edit_button_rgba_unmultiplied(&mut secondary_color);
                 });
+            }
+
+            if history_window_open {
+                new_general_window("history", &mut history_window_open)
+                    .resizable(true)
+                    .anchor(egui::Align2::RIGHT_TOP, egui::vec2(0., 0.))
+                    .show(egui_ctx, |ui| {
+                        let mut undo_to = None;
+                        egui::ScrollArea::new([false, true]).show(ui, |ui| {
+                            for (index, action) in
+                                canvases[active_canvas].undo_history.iter().enumerate()
+                            {
+                                let text: &str = action.into();
+                                if ui.button(text).clicked() {
+                                    undo_to = Some(index);
+                                }
+                            }
+                        });
+                        if let Some(undo_to) = undo_to {
+                            let undo_to = canvases[active_canvas].undo_history.len() - undo_to;
+                            for _ in 0..undo_to {
+                                canvases[active_canvas].undo();
+                            }
+                        }
+                    });
             }
 
             if layers_window_open {

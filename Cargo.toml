@@ -1,6 +1,6 @@
 [package]
 name = "plow"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 
 [dependencies]
@@ -26,3 +26,4 @@ image = { version = "^0.24", default-features = false, features = [
     "tiff",
     "webp",
 ] }
+strum = { version = "0.27.1", features = ["derive"] }

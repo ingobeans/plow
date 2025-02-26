@@ -1,6 +1,7 @@
 use line_drawing::Bresenham;
 use macroquad::prelude::*;
 use std::{hash::Hash, io::Cursor, path::PathBuf};
+use strum::IntoStaticStr;
 
 use crate::{consts::MIN_ZOOM, tools::Stroke};
 
@@ -178,6 +179,7 @@ impl Layer {
 }
 
 /// Action to undo a specific type of change
+#[derive(IntoStaticStr)]
 pub enum UndoAction {
     /// For changes of entire layer, track entire layer image data (index, image)
     LayerFull(usize, Image),
@@ -385,14 +387,15 @@ impl Canvas {
     pub fn merge_layers_down(&mut self) {
         self.modified = true;
 
-        self.undo_history.push(UndoAction::MergeLayersDown(
-            self.current_layer,
-            self.layers[self.current_layer].image.clone(),
-            self.layers[self.current_layer].name.clone(),
-            self.layers[self.current_layer + 1].image.clone(),
-        ));
-
         if self.current_layer != self.layers.len() - 1 {
+            // add to history
+            self.undo_history.push(UndoAction::MergeLayersDown(
+                self.current_layer,
+                self.layers[self.current_layer].image.clone(),
+                self.layers[self.current_layer].name.clone(),
+                self.layers[self.current_layer + 1].image.clone(),
+            ));
+            // merge down
             let old_layer = self.layers.remove(self.current_layer);
             self.layers[self.current_layer]
                 .image
@@ -418,13 +421,14 @@ impl Canvas {
     pub fn delete_layer(&mut self) {
         self.modified = true;
 
-        self.undo_history.push(UndoAction::DeleteLayer(
-            self.current_layer,
-            self.layers[self.current_layer].name.clone(),
-            self.layers[self.current_layer].image.clone(),
-        ));
-
         if self.layers.len() > 1 {
+            // add to history
+            self.undo_history.push(UndoAction::DeleteLayer(
+                self.current_layer,
+                self.layers[self.current_layer].name.clone(),
+                self.layers[self.current_layer].image.clone(),
+            ));
+            // remove layer
             self.layers.remove(self.current_layer);
             if self.current_layer == self.layers.len() {
                 self.current_layer = self.current_layer.saturating_sub(1);
