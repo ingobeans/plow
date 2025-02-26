@@ -462,6 +462,12 @@ async fn main() {
                 else if is_key_pressed(KeyCode::O) {
                     file_picker.open_dialog();
                 }
+                // ctrl + n => create new file
+                else if is_key_pressed(KeyCode::N) {
+                    new_file_window_open = true;
+                    new_file_width = DEFAULT_CANVAS_WIDTH.to_string();
+                    new_file_height = DEFAULT_CANVAS_HEIGHT.to_string();
+                }
             }
         }
 
