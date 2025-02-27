@@ -77,6 +77,7 @@ pub fn draw_line_image(
 }
 
 /// Keeps track of the largest and smallest coordinates given to it by track(). Can be flushed to generate a Rect for its area, and wipe coordinate data.
+#[derive(Clone)]
 pub struct BoundsTracker {
     empty: bool,
     min_x: u32,
@@ -134,6 +135,7 @@ impl BoundsTracker {
     }
 }
 
+#[derive(Clone)]
 pub struct Layer {
     pub name: String,
     pub visible: bool,
@@ -267,10 +269,10 @@ pub enum UndoAction {
     LayerRegion(usize, Rect, Image),
     /// When a layer is created, track its index to know what to remove to undo it
     CreateLayer(usize),
-    /// When a layer is deleted, track where to insert it, its name and its data to undo it (index, name)
-    DeleteLayer(usize, String, Image),
-    /// When layers are merged down, track index of the destination layer, its name, and both layer's old data (index, source image, source layer name, dest image)
-    MergeLayersDown(usize, Image, String, Image),
+    /// When a layer is deleted, track where to insert it and its value (index, layer)
+    DeleteLayer(usize, Layer),
+    /// When layers are merged down, track index of the destination layer and its image data and the top layers old data ()
+    MergeLayersDown(usize, Image, Layer),
     /// When layer is renamed, track its index and old name
     RenameLayer(usize, String),
 }
@@ -416,15 +418,13 @@ impl Canvas {
                     self.layers.remove(index);
                     self.current_layer = index;
                 }
-                UndoAction::MergeLayersDown(index, source, source_name, dest) => {
-                    let new = Layer::new(source, source_name);
+                UndoAction::MergeLayersDown(index, dest, layer) => {
                     self.layers[index].image = dest;
                     self.layers[index].force_update_region(None);
-                    self.layers.insert(index, new);
+                    self.layers.insert(index, layer);
                 }
-                UndoAction::DeleteLayer(index, name, image) => {
-                    let new = Layer::new(image, name);
-                    self.layers.insert(index, new);
+                UndoAction::DeleteLayer(index, layer) => {
+                    self.layers.insert(index, layer);
                 }
                 UndoAction::RenameLayer(index, name) => {
                     self.layers[index].name = name;
@@ -480,9 +480,8 @@ impl Canvas {
             // add to history
             self.undo_history.push(UndoAction::MergeLayersDown(
                 self.current_layer,
-                self.layers[self.current_layer].image.clone(),
-                self.layers[self.current_layer].name.clone(),
                 self.layers[self.current_layer + 1].image.clone(),
+                self.layers[self.current_layer].clone(),
             ));
             // merge down
             let mut old_layer = self.layers.remove(self.current_layer);
@@ -517,8 +516,7 @@ impl Canvas {
             // add to history
             self.undo_history.push(UndoAction::DeleteLayer(
                 self.current_layer,
-                self.layers[self.current_layer].name.clone(),
-                self.layers[self.current_layer].image.clone(),
+                self.layers[self.current_layer].clone(),
             ));
             // remove layer
             self.layers.remove(self.current_layer);
