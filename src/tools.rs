@@ -258,19 +258,15 @@ impl Tool for Brush {
                 let bounds = current_stroke.bounds_tracker.flush();
                 if let Some(bounds) = bounds {
                     // save old image in history
-                    let image = ctx.canvas.layers[ctx.canvas.current_layer].image.clone();
-                    ctx.canvas
-                        .undo_history
-                        .push(UndoAction::LayerFull(ctx.canvas.current_layer, image));
 
-                    //let sub_image = ctx.canvas.layers[ctx.canvas.current_layer]
-                    //    .image
-                    //    .sub_image(bounds);
-                    //ctx.canvas.undo_history.push(UndoAction::LayerRegion(
-                    //    ctx.canvas.current_layer,
-                    //    bounds,
-                    //    sub_image,
-                    //));
+                    let sub_image = ctx.canvas.layers[ctx.canvas.current_layer]
+                        .image
+                        .sub_image(bounds);
+                    ctx.canvas.undo_history.push(UndoAction::LayerRegion(
+                        ctx.canvas.current_layer,
+                        bounds,
+                        sub_image,
+                    ));
 
                     // write brush stroke data on image
                     overlay_images(

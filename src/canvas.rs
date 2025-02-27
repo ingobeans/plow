@@ -158,6 +158,7 @@ impl Layer {
         self.image.set_pixel(x, y, color);
         self.modified = true;
     }
+    #[allow(dead_code)]
     pub fn flush_texture(&mut self) {
         let bounds = self.bounds_tracker.flush();
         self.force_update_region(bounds);
@@ -175,6 +176,29 @@ impl Layer {
         //    }
         //}
         update_texture(&mut self.texture, &self.image, region);
+    }
+}
+
+pub fn update_image_region(source: &mut Image, region: &Rect, other: &Image) {
+    let source_width = source.width();
+    let other_width = other.width();
+    for x in 0..region.w as usize {
+        for y in 0..region.h as usize {
+            let other_index = other_width * y * 4 + x * 4;
+            let other_color = [
+                other.bytes[other_index],
+                other.bytes[other_index + 1],
+                other.bytes[other_index + 2],
+                other.bytes[other_index + 3],
+            ];
+
+            let source_index =
+                4 * source_width * (region.y as usize + y) + x * 4 + region.x as usize * 4;
+            source.bytes[source_index] = other_color[0];
+            source.bytes[source_index + 1] = other_color[1];
+            source.bytes[source_index + 2] = other_color[2];
+            source.bytes[source_index + 3] = other_color[3];
+        }
     }
 }
 
@@ -351,8 +375,9 @@ impl Canvas {
                     self.layers[index].image = data;
                     self.layers[index].force_update_region(None);
                 }
-                _ => {
-                    unimplemented!();
+                UndoAction::LayerRegion(index, region, data) => {
+                    update_image_region(&mut self.layers[index].image, &region, &data);
+                    self.layers[index].force_update_region(Some(region));
                 }
             }
         }
