@@ -595,13 +595,13 @@ async fn main() {
                 );
             }
         }
-        if let Some(current_stroke) = &tools_settings.current_stroke {
+        if canvases[active_canvas].layers[canvases[active_canvas].current_layer].visible {
             draw_texture_ex(
-                &current_stroke.texture,
+                &canvases[active_canvas].current_changes.texture,
                 -canvases[active_canvas].camera_x,
                 -canvases[active_canvas].camera_y,
                 WHITE,
-                draw_params.clone(),
+                draw_params,
             );
         }
 

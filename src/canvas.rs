@@ -3,7 +3,10 @@ use macroquad::prelude::*;
 use std::{hash::Hash, io::Cursor, path::PathBuf};
 use strum::IntoStaticStr;
 
-use crate::{consts::MIN_ZOOM, tools::Stroke};
+use crate::{
+    consts::MIN_ZOOM,
+    tools::{overlay_colors, overlay_images, Stroke},
+};
 
 pub fn gen_empty_image(width: u16, height: u16) -> Image {
     let bytes = vec![0; width as usize * height as usize * 4];
@@ -106,6 +109,17 @@ impl BoundsTracker {
         }
         self.empty = false;
     }
+    pub fn to_rect(&self) -> Option<Rect> {
+        if self.empty {
+            return None;
+        }
+        Some(Rect {
+            x: self.min_x as f32,
+            y: self.min_y as f32,
+            w: (self.max_x - self.min_x + 1) as f32,
+            h: (self.max_y - self.min_y + 1) as f32,
+        })
+    }
     pub fn flush(&mut self) -> Option<Rect> {
         if self.empty {
             return None;
@@ -179,7 +193,13 @@ impl Layer {
     }
 }
 
-pub fn update_image_region(source: &mut Image, region: &Rect, other: &Image) {
+pub fn update_image_region(
+    source: &mut Image,
+    region: &Rect,
+    other: &mut Image,
+    overlay: bool,
+    empty_other: bool,
+) {
     let source_width = source.width();
     let other_width = other.width();
     for x in 0..region.w as usize {
@@ -194,10 +214,46 @@ pub fn update_image_region(source: &mut Image, region: &Rect, other: &Image) {
 
             let source_index =
                 4 * source_width * (region.y as usize + y) + x * 4 + region.x as usize * 4;
-            source.bytes[source_index] = other_color[0];
-            source.bytes[source_index + 1] = other_color[1];
-            source.bytes[source_index + 2] = other_color[2];
-            source.bytes[source_index + 3] = other_color[3];
+            let mut new_color = other_color;
+
+            // if overlay is true, combine colors, otherwise just overwrite
+            if overlay {
+                let other_color = [
+                    other_color[0] as f32 / 255.,
+                    other_color[1] as f32 / 255.,
+                    other_color[2] as f32 / 255.,
+                    other_color[3] as f32 / 255.,
+                ];
+                let source_color = [
+                    source.bytes[source_index] as f32 / 255.,
+                    source.bytes[source_index + 1] as f32 / 255.,
+                    source.bytes[source_index + 2] as f32 / 255.,
+                    source.bytes[source_index + 3] as f32 / 255.,
+                ];
+                new_color = {
+                    let color = overlay_colors(other_color, source_color);
+                    [
+                        (color[0] * 255.) as u8,
+                        (color[1] * 255.) as u8,
+                        (color[2] * 255.) as u8,
+                        (color[3] * 255.) as u8,
+                    ]
+                };
+                //new_color = [255, 255, 255, 255];
+            }
+            // update color
+            source.bytes[source_index] = new_color[0];
+            source.bytes[source_index + 1] = new_color[1];
+            source.bytes[source_index + 2] = new_color[2];
+            source.bytes[source_index + 3] = new_color[3];
+
+            // if empty_other is true, set others color to 0,0,0,0
+            if empty_other {
+                other.bytes[other_index] = 0;
+                other.bytes[other_index + 1] = 0;
+                other.bytes[other_index + 2] = 0;
+                other.bytes[other_index + 3] = 0;
+            }
         }
     }
 }
@@ -231,6 +287,7 @@ pub struct Canvas {
     pub preffered_file_format: ImageFormat,
     pub save_path: Option<PathBuf>,
     pub undo_history: Vec<UndoAction>,
+    pub current_changes: Layer,
     modified: bool,
 }
 
@@ -261,6 +318,7 @@ impl Canvas {
             preffered_file_format,
             save_path: None,
             undo_history: Vec::new(),
+            current_changes: Layer::new(gen_empty_image(width, height), String::new()),
             modified: false,
         })
     }
@@ -375,8 +433,14 @@ impl Canvas {
                     self.layers[index].image = data;
                     self.layers[index].force_update_region(None);
                 }
-                UndoAction::LayerRegion(index, region, data) => {
-                    update_image_region(&mut self.layers[index].image, &region, &data);
+                UndoAction::LayerRegion(index, region, mut data) => {
+                    update_image_region(
+                        &mut self.layers[index].image,
+                        &region,
+                        &mut data,
+                        false,
+                        false,
+                    );
                     self.layers[index].force_update_region(Some(region));
                 }
             }
@@ -421,10 +485,13 @@ impl Canvas {
                 self.layers[self.current_layer + 1].image.clone(),
             ));
             // merge down
-            let old_layer = self.layers.remove(self.current_layer);
-            self.layers[self.current_layer]
-                .image
-                .overlay(&old_layer.image);
+            let mut old_layer = self.layers.remove(self.current_layer);
+            overlay_images(
+                &mut self.layers[self.current_layer].image,
+                &mut old_layer.image,
+                false,
+            );
+
             self.layers[self.current_layer].force_update_region(None);
             self.layers[self.current_layer].modified =
                 self.layers[self.current_layer].modified || old_layer.modified;

@@ -127,7 +127,6 @@ pub struct ToolsSettings {
     pub color_tolerance: u8,
     pub flood_mode_continuous: bool,
     pub stroke: Stroke,
-    pub current_stroke: Option<Layer>,
 }
 
 impl ToolsSettings {
@@ -136,7 +135,6 @@ impl ToolsSettings {
             color_tolerance: 0,
             flood_mode_continuous: true,
             stroke: Stroke::new(1),
-            current_stroke: None,
         }
     }
 }
@@ -165,6 +163,7 @@ pub trait Tool {
         None
     }
 }
+
 pub struct Brush;
 impl Brush {
     #[allow(clippy::too_many_arguments)]
@@ -189,12 +188,11 @@ impl Brush {
                     cursor_y,
                     stroke,
                 );
-                layer.force_update_region(None);
             }
         } else {
             layer.set_pixel(cursor_x as u32, cursor_y as u32, draw_color);
-            layer.force_update_region(None);
         }
+        layer.force_update_region(layer.bounds_tracker.to_rect());
     }
 }
 impl Tool for Brush {
@@ -218,16 +216,6 @@ impl Tool for Brush {
         }
     }
     fn update(&self, ctx: ToolContext) {
-        // when start of stroke, create an empty image to hold the stroke image data, to later be written to the current layer
-        if is_mouse_button_pressed(MouseButton::Left) || is_mouse_button_pressed(MouseButton::Right)
-        {
-            let image = gen_empty_image(
-                ctx.canvas.layers[ctx.canvas.current_layer].image.width,
-                ctx.canvas.layers[ctx.canvas.current_layer].image.height,
-            );
-            ctx.settings.current_stroke = Some(Layer::new(image, String::new()))
-        }
-
         let draw_color = if is_mouse_button_down(MouseButton::Left) {
             Some(rgb_array_to_color(ctx.primary_color))
         } else if is_mouse_button_down(MouseButton::Right) {
@@ -237,46 +225,56 @@ impl Tool for Brush {
         };
 
         if let Some(draw_color) = draw_color {
-            if let Some(current_stroke) = &mut ctx.settings.current_stroke {
-                self.draw_stroke(
-                    &ctx.settings.stroke,
-                    ctx.cursor_x,
-                    ctx.cursor_y,
-                    ctx.last_cursor_x,
-                    ctx.last_cursor_y,
-                    current_stroke,
-                    draw_color,
-                );
-            }
+            self.draw_stroke(
+                &ctx.settings.stroke,
+                ctx.cursor_x,
+                ctx.cursor_y,
+                ctx.last_cursor_x,
+                ctx.last_cursor_y,
+                &mut ctx.canvas.current_changes,
+                draw_color,
+            );
         }
 
         // on release, flush the current_stroke image to the current layer's image
         if is_mouse_button_released(MouseButton::Left)
             || is_mouse_button_released(MouseButton::Right)
         {
-            if let Some(current_stroke) = &mut ctx.settings.current_stroke {
-                let bounds = current_stroke.bounds_tracker.flush();
-                if let Some(bounds) = bounds {
-                    // save old image in history
+            let bounds = ctx.canvas.current_changes.bounds_tracker.flush();
+            if let Some(bounds) = bounds {
+                // save old image in history
 
-                    let sub_image = ctx.canvas.layers[ctx.canvas.current_layer]
-                        .image
-                        .sub_image(bounds);
-                    ctx.canvas.undo_history.push(UndoAction::LayerRegion(
-                        ctx.canvas.current_layer,
-                        bounds,
-                        sub_image,
-                    ));
+                let sub_image = ctx.canvas.layers[ctx.canvas.current_layer]
+                    .image
+                    .sub_image(bounds);
+                ctx.canvas.undo_history.push(UndoAction::LayerRegion(
+                    ctx.canvas.current_layer,
+                    bounds,
+                    sub_image,
+                ));
+                let mut sub_image_stroke = ctx.canvas.current_changes.image.sub_image(bounds);
 
-                    // write brush stroke data on image
-                    overlay_images(
-                        &mut ctx.canvas.layers[ctx.canvas.current_layer].image,
-                        &current_stroke.image,
-                    );
-                    ctx.canvas.layers[ctx.canvas.current_layer].force_update_region(Some(bounds));
-                }
+                // write brush stroke data on image
+                update_image_region(
+                    &mut ctx.canvas.layers[ctx.canvas.current_layer].image,
+                    &bounds,
+                    &mut sub_image_stroke,
+                    true,
+                    true,
+                );
+
+                // update current_changes to reset it
+                update_image_region(
+                    &mut ctx.canvas.current_changes.image,
+                    &bounds,
+                    &mut sub_image_stroke,
+                    false,
+                    false,
+                );
+
+                ctx.canvas.layers[ctx.canvas.current_layer].force_update_region(Some(bounds));
+                ctx.canvas.current_changes.force_update_region(Some(bounds));
             }
-            ctx.settings.current_stroke = None;
         }
     }
 }
@@ -297,20 +295,53 @@ impl Tool for Eraser {
     }
     fn update(&self, ctx: ToolContext) {
         if is_mouse_button_down(MouseButton::Left) || is_mouse_button_down(MouseButton::Right) {
-            self.internal_brush.draw_stroke(
-                &ctx.settings.stroke,
-                ctx.cursor_x,
-                ctx.cursor_y,
-                ctx.last_cursor_x,
-                ctx.last_cursor_y,
-                &mut ctx.canvas.layers[ctx.canvas.current_layer],
-                Color {
-                    r: 0.,
-                    g: 0.,
-                    b: 0.,
-                    a: 0.,
-                },
-            );
+            let mut ctx = ctx;
+            let mut primary_color = [1., 0., 0., 1.];
+            let mut secondary_color = primary_color;
+            ctx.primary_color = &mut primary_color;
+            ctx.secondary_color = &mut secondary_color;
+            self.internal_brush.update(ctx);
+        } else if is_mouse_button_released(MouseButton::Left)
+            || is_mouse_button_released(MouseButton::Right)
+        {
+            let region = ctx.canvas.current_changes.bounds_tracker.flush();
+
+            if let Some(region) = region {
+                ctx.canvas.undo_history.push(UndoAction::LayerRegion(
+                    ctx.canvas.current_layer,
+                    region.clone(),
+                    ctx.canvas.layers[ctx.canvas.current_layer]
+                        .image
+                        .sub_image(region.clone()),
+                ));
+                let source_width = ctx.canvas.layers[ctx.canvas.current_layer].width();
+
+                for x in 0..region.w as usize {
+                    for y in 0..region.h as usize {
+                        let source_index = 4 * source_width * (region.y as usize + y)
+                            + x * 4
+                            + region.x as usize * 4;
+                        if ctx.canvas.current_changes.image.bytes[source_index + 3] == 255 {
+                            // update color
+                            ctx.canvas.layers[ctx.canvas.current_layer].image.bytes[source_index] =
+                                0;
+                            ctx.canvas.layers[ctx.canvas.current_layer].image.bytes
+                                [source_index + 1] = 0;
+                            ctx.canvas.layers[ctx.canvas.current_layer].image.bytes
+                                [source_index + 2] = 0;
+                            ctx.canvas.layers[ctx.canvas.current_layer].image.bytes
+                                [source_index + 3] = 0;
+                            // empty current_changes
+                            ctx.canvas.current_changes.image.bytes[source_index + 0] = 0;
+                            ctx.canvas.current_changes.image.bytes[source_index + 1] = 0;
+                            ctx.canvas.current_changes.image.bytes[source_index + 2] = 0;
+                            ctx.canvas.current_changes.image.bytes[source_index + 3] = 0;
+                        }
+                    }
+                }
+                ctx.canvas.layers[ctx.canvas.current_layer].force_update_region(Some(region));
+                ctx.canvas.current_changes.force_update_region(Some(region));
+            }
         }
     }
     fn draw_buttons(&self, ui: &mut Ui, settings: &mut ToolsSettings) {
@@ -356,7 +387,16 @@ fn compare_colors(color_a: [u8; 4], color_b: [u8; 4]) -> u16 {
     diffs
 }
 
-fn overlay_images(source: &mut Image, other: &Image) {
+pub fn overlay_colors(c1: [f32; 4], c2: [f32; 4]) -> [f32; 4] {
+    [
+        f32::min(c1[0] + (1. - c1[3]) * c2[0], 1.),
+        f32::min(c1[1] + (1. - c1[3]) * c2[1], 1.),
+        f32::min(c1[2] + (1. - c1[3]) * c2[2], 1.),
+        f32::min(c1[3] + (1. - c1[3]) * c2[3], 1.),
+    ]
+}
+
+pub fn overlay_images(source: &mut Image, other: &mut Image, empty_other: bool) {
     for i in 0..source.bytes.len() / 4 {
         let c1 = [
             other.bytes[i * 4] as f32 / 255.,
@@ -370,17 +410,19 @@ fn overlay_images(source: &mut Image, other: &Image) {
             source.bytes[i * 4 + 2] as f32 / 255.,
             source.bytes[i * 4 + 3] as f32 / 255.,
         ];
-        let new_color = [
-            f32::min(c1[0] + (1. - c1[3]) * c2[0], 1.),
-            f32::min(c1[1] + (1. - c1[3]) * c2[1], 1.),
-            f32::min(c1[2] + (1. - c1[3]) * c2[2], 1.),
-            f32::min(c1[3] + (1. - c1[3]) * c2[3], 1.),
-        ];
+        let new_color = overlay_colors(c1, c2);
 
         source.bytes[i * 4] = (new_color[0] * 255.) as u8;
         source.bytes[i * 4 + 1] = (new_color[1] * 255.) as u8;
         source.bytes[i * 4 + 2] = (new_color[2] * 255.) as u8;
         source.bytes[i * 4 + 3] = (new_color[3] * 255.) as u8;
+
+        if empty_other {
+            other.bytes[i * 4] = 0;
+            other.bytes[i * 4 + 1] = 0;
+            other.bytes[i * 4 + 2] = 0;
+            other.bytes[i * 4 + 3] = 0;
+        }
     }
 }
 
