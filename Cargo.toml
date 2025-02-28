@@ -10,7 +10,7 @@ egui-macroquad = { git = "https://github.com/Gyorgy0/egui-macroquad.git" }
 # my cross platform file dialog crate
 quad-files = { git = "https://github.com/ingobeans/quad-files.git" }
 # my modded version of egui-dnd that doesnt use wasm-bindgen
-quad-egui-dnd = { git = "https://github.com/ingobeans/cool_egui_dnd.git" }
+quad-egui-dnd = { git = "https://github.com/ingobeans/quad-egui-dnd.git" }
 line_drawing = "1.0.0"
 # include most standard formats except avif, since it uses ravif which uses wasm-bindgen making the web version not function
 image = { version = "^0.24", default-features = false, features = [

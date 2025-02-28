@@ -993,7 +993,7 @@ dependencies = [
 [[package]]
 name = "quad-egui-dnd"
 version = "0.1.0"
-source = "git+https://github.com/ingobeans/cool_egui_dnd.git#acb3816874bc8b2c780d2e1173e5f8feb0fde7b6"
+source = "git+https://github.com/ingobeans/quad-egui-dnd.git#acb3816874bc8b2c780d2e1173e5f8feb0fde7b6"
 dependencies = [
  "egui",
  "macroquad",
