@@ -4,6 +4,20 @@
 
 plow is an image editor made in rust with macroquad and egui. it can run in the browser with wasm or standalone cross platform.
 
+## features
+
+* 4 tools
+* layers
+* opening & saving files
+* ctrl + z
+
+## tools
+
+* brush (B)
+* eraser (E)
+* bucket (F)
+* color picker (K, or hold ALT)
+
 ## build
 
 for standalone: `cargo run`
