@@ -584,7 +584,7 @@ async fn main() {
             )),
             ..Default::default()
         };
-        for layer in canvases[active_canvas].layers.iter().rev() {
+        for (index, layer) in canvases[active_canvas].layers.iter().enumerate().rev() {
             if layer.visible {
                 draw_texture_ex(
                     &layer.texture,
@@ -593,16 +593,18 @@ async fn main() {
                     WHITE,
                     draw_params.clone(),
                 );
+
+                // if layer is current, also draw the active draw buffer (current_changes.texture)
+                if index == canvases[active_canvas].current_layer {
+                    draw_texture_ex(
+                        &canvases[active_canvas].current_changes.texture,
+                        -canvases[active_canvas].camera_x,
+                        -canvases[active_canvas].camera_y,
+                        WHITE,
+                        draw_params.clone(),
+                    );
+                }
             }
-        }
-        if canvases[active_canvas].layers[canvases[active_canvas].current_layer].visible {
-            draw_texture_ex(
-                &canvases[active_canvas].current_changes.texture,
-                -canvases[active_canvas].camera_x,
-                -canvases[active_canvas].camera_y,
-                WHITE,
-                draw_params,
-            );
         }
 
         // draw cursor (if in bounds)
